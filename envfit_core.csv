@@ -1,0 +1,9 @@
+variable,r2,p_value,kind
+háplöntuþekja,0.5762953957199796,0.001,numeric
+soil_depth,0.33209362351446137,0.001,numeric
+total_cover,0.3690126215930387,0.001,numeric
+vegetation_height_1,0.5743539083452638,0.001,numeric
+soil_type_name,0.36698783709390537,0.001,factor
+moisture_name,0.2619479602441852,0.001,factor
+topography_name,0.029076148612123043,0.003,factor
+permafrost,0.012848015166597171,0.015,factor

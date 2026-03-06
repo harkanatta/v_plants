@@ -1,0 +1,21 @@
+# R / RStudio
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# knitr / rmarkdown caches
+cache/
+**/cache/
+
+# Local outputs (regenerable)
+outputs/
+
+# RStudio/Posit local state (can be huge)
+.local/
+.config/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+

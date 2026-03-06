@@ -1,0 +1,7 @@
+id,name,county_id,land_part_id,latitude,longitude,accuracy,altitude_min,altitude_max,grid_old,grid_new,comments,insert_user,insert_time,update_user,update_time
+1,Grændalur,1,1,NA,NA,NA,NA,NA,NA,NA,NA,olgakolbrun,2020-11-27T13:04:35Z,NA,NA
+2,Þingvellir,1,1,64.28,-21.097,1000,NA,NA,3957,NA,NA,elly,2021-03-24T10:05:04Z,NA,NA
+3,Leirhnjúkur,19,2,NA,NA,NA,NA,NA,NA,NA,NA,nna.stella,2021-04-12T13:57:55Z,NA,NA
+4,Dettifoss,13,2,NA,NA,NA,NA,NA,NA,NA,NA,nna.stella,2021-11-03T15:27:07Z,NA,NA
+5,Herðubreiðarlindir,19,2,NA,NA,NA,NA,NA,NA,NA,NA,nna.stella,2021-11-03T15:40:07Z,NA,NA
+6,Brennisteinsalda í Landmannalaugum,14,1,NA,NA,NA,NA,NA,NA,NA,Sýsla: Rangárþyng ytra,olgakolbrun,2022-05-24T09:25:01Z,NA,NA

@@ -1,0 +1,1450 @@
+---
+title: "Kolgrafafjörður niðurstöður"
+author: "Valtýr"
+date: "2023-04-26"
+output: html_document
+---
+
+<style>
+.output_png img {
+  width: 100%;
+}
+</style>
+
+```{r pakkar, message=FALSE, warning=FALSE, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, out.width = "100%")
+#Rpakkar <- c("tidyverse","benthos","worrms", "plyr", "data.table", "DT", "dplyr", "here", "BBI", "ggh4x", "gplots","PDE", "magick", "tesseract", "xlsx", "ggpubr", "factoextra")
+Rpakkar <- c("BBI","tidyverse", "diagram", "xlsx", "vegan", "ggrepel", "gplots", "betareg", "dunn.test")
+
+load_packages <- function(package_vector) {
+  for (package in package_vector) {
+    library(package, character.only = TRUE)
+  }
+}
+
+
+#load_packages(Rpakkar)
+
+
+
+#install.packages('pacman')
+pacman::p_load(Rpakkar, character.only = TRUE)
+#remotes::install_github(c("ropensci/tabulizerjars", "ropensci/tabulizer"))
+#install.packages("PDE", dependencies = TRUE)
+#Sys.setlocale("LC_ALL", "Icelandic") # `Sys.setlocale` er hér fyrir íslenskar dagsetningar.
+```
+
+Innlestur gagna, ungviði og krabbaflær tekið út og flokkunin einfölduð til að ýkja ekki fjölbreytileikann.
+```{r innlestur, message=FALSE, warning=FALSE, include=FALSE}
+KolgrTaxa <- read_csv("KolgrTaxa.csv", na = "empty") 
+   
+   remove_list <- paste(c(
+     "nýsestir",
+     "ungviði",
+     "ungv",
+     "ungv.",
+     "juv",
+     "harpacticoida"
+   ), collapse = '|') 
+   
+   remove_ind <- lapply(strsplit(remove_list , "\\|")[[1]] , \(x) grep(x , KolgrTaxa$gamalt , fixed = T)) |> 
+     unlist() |> 
+     unique()
+   
+   ekkiungvidi <- KolgrTaxa[-remove_ind,] 
+   
+df <- ekkiungvidi %>% 
+  mutate(Artal = factor(Artal)) %>% 
+  dplyr::filter(stod %in% c("C4", "A7", "B5", "B8", "E4", "E3")) %>% 
+  group_by(Artal, stod, Flokkun) %>%
+  summarise(N = sum(Nfm), .groups = "drop") %>% 
+  arrange(N)
+   
+   jorundur <- df %>% 
+     filter(!Flokkun %in% c("harpacticoida", "Campanulariidae")) %>% 
+     mutate(
+       Flokkun = case_when(
+         Flokkun == "Spionida" ~ "Spionidae",
+         Flokkun == "Terebellides stroemi" ~ "Terebellides stroemii",
+         Flokkun == "Ampharetinae" ~ "Ampharetidae",
+         Flokkun == "ostracoda" ~ "Ostracoda",
+         Flokkun == "Sabellidae" ~ "Sabellida",
+         Flokkun == "scalibregma inflatum" ~ "Scalibregma inflatum",
+         Flokkun == "sipunculida" ~ "Sipuncula",
+         Flokkun == "sipunculidae" ~ "Sipuncula",
+         Flokkun == "sipunculidea" ~ "Sipuncula",
+         Flokkun == "Nephtys" ~ "Nephthys",
+         Flokkun == "Nepthys" ~ "Nephthys",
+Artal == "1999" & Flokkun == "Ampharete acutifrons" ~ "Ampharetinae",
+Artal == "1999" & Flokkun == "Bivalvia" ~ "NA"        ,
+Artal == "2013" & Flokkun == "Harmothoe" ~ "Harmothoe extenuata"       ,
+Artal == "2013" & Flokkun == "Polynoidae" ~ "Harmothoe extenuata" ,
+Artal == "2014" & Flokkun == "Praxillella" ~ "Praxillella praetermissa",
+Artal == "2014" & Flokkun == "Syllidae" ~ "Syllis cornuta"             ,
+Artal == "2015" & Flokkun == "Syllidae" ~ "Syllis cornuta",
+Artal == "2015" & Flokkun == "Mya" ~ "Mya arenaria"        ,     
+Artal == "2015" & Flokkun == "Mytilidae" ~ "Mytilus edulis",
+Artal == "2015" & Flokkun == "Ampharetidae" ~ "NA"          ,
+Artal == "2016" & Flokkun == "Aricidea" ~ "Amphitrite cirrata"      ,
+Artal == "2016" & Flokkun == "Capitellidae" ~ "Capitella capitata"   ,  
+Artal == "2016" & Flokkun == "Cirratulidae" ~ "Cirratulus cirratus",
+Artal == "2016" & Flokkun == "Cossuridae" ~ "Cossura longocirrata",
+Artal == "2016" & Flokkun == "Nephtyidae" ~ "Nephthys"      ,
+Artal == "2016" & Flokkun == "Pectinariidae" ~ "Pectinaria koreni"     ,
+Artal == "2016" & Flokkun == "Phyllodocida" ~ "Phyllodoce maculata",
+Artal == "2016" & Flokkun == "Spio" ~ "Spio filicornis"            ,
+Artal == "2016" & Flokkun == "Spionidae" ~ "Spio filicornis",
+Artal == "2016" & Flokkun == "Syllidae" ~ "Syllis"           ,          
+Artal == "2016" & Flokkun == "Cardiidae" ~ "Cardium"          ,         
+Artal == "2016" & Flokkun == "Cardiidae" ~ "Cardium"           ,        
+Artal == "2017" & Flokkun == "Mya" ~ "Mya arenaria"  ,
+Artal == "2017" & Flokkun == "Maldanidae" ~ "Praxillella praetermissa",
+Artal == "1999" & Flokkun == "Ampharetinae" ~ "Ampharetidae",
+Artal == "2017" & Flokkun == "Ampharete" ~ "Ampharetidae"    ,
+Artal == "2017" & Flokkun == "Ampharete acutifrons" ~ "Ampharetidae",
+Artal == "2016" & Flokkun == "Lumbrineridae" ~ "Lumbrineris",
+Artal == "2015" & Flokkun == "Pholoe" ~ "Pholoe minuta"      ,          
+Artal == "2016" & Flokkun == "Pholoe" ~ "Pholoe minuta"       ,         
+Artal == "2017" & Flokkun == "Pholoe" ~ "Pholoe minuta"        ,    
+Artal == "1999" & Flokkun == "Musculus discors" ~ "Musculus",
+Artal == "2014" & Flokkun == "Mya" ~ "Mya arenaria"          ,   
+Artal == "2014" & Flokkun == "Mytilus edulis" ~ "Mytilidae",
+Artal == "2014" & Flokkun == "Nephtyidae" ~ "Nephthys"       ,
+Artal == "2014" & Flokkun == "Amphipoda" ~ "Protomedeia fasciata"    ,
+Artal == "2014" & Flokkun == "Tubificidae" ~ "Tubificoides kozloffi",
+Artal == "2014" & Flokkun == "Harmothoe" ~ "Harmothoe extenuata"     ,  
+Artal == "2015" & Flokkun == "Harmothoe" ~ "Harmothoe extenuata"      , 
+Artal == "2015" & Flokkun == "Amphipoda" ~ "Protomedeia fasciata",
+Artal == "2016" & Flokkun == "Balanus balanus" ~ "Balanus"       ,
+Artal == "2016" & Flokkun == "priapulidae" ~ "Priapulus caudatus" ,     
+Artal == "2016" & Flokkun == "Priapulidae" ~ "Priapulus caudatus"  ,    
+Artal == "2017" & Flokkun == "Harmothoe" ~ "Harmothoe extenuata"    ,   
+Artal == "1999" & Flokkun == "Leucon acutirostris" ~ "Cumacea"       ,  
+Artal == "1999" & Flokkun == "Eudorella emarginata" ~ "Cumacea",
+       TRUE ~ Flokkun)) %>% 
+     drop_na() 
+```
+
+
+```{r BBIindexar, echo=FALSE, message=FALSE, warning=FALSE}
+library(BBI)
+  BBIlisti <- list()
+   BBIastand <- list()
+   nEQR <- list()
+   for (i in unique(jorundur$Artal)) {
+     my_BBI <- jorundur %>%
+        filter(Artal == i) %>%
+        filter(stod %in% c("C4", "A7", "B5", "B8", "E4", "E3")) %>%
+        group_by(Artal, stod, Flokkun) %>%
+        summarise(N = sum(N), .groups = 'drop') %>%
+        select(-Artal) %>% 
+        pivot_wider(names_from = stod, values_from = N) %>% BBI()
+     # calculating nEQR values and ecological quality status
+     BBIlisti[[i]] <- as.data.frame(cbind(my_BBI$BBI, Artal=i))
+     BBIastand[[i]] <- my_BBI$BBIclass
+     nEQR[[i]] <- as.data.frame(nEQR(my_BBI$BBI)[1])
+   }
+   
+   rass <- do.call(rbind,plyr::compact(nEQR))
+   names(rass) <- c("nAMBI","nISI","nNSI","nNQI1","nShannon","nEQR")
+   mm <- as.matrix(rass, ncol = 7)
+   
+   heatmap.2(x = mm, Rowv = FALSE, Colv = FALSE, dendrogram = "none",
+             cellnote = mm, notecol = "black", notecex = .51,
+             trace = "none", key = FALSE, srtCol=0,   adjCol = c(0.5,1))
+   
+   heatmap.2(mm,dendrogram = "row", srtCol=0,   adjCol = c(0.5,1))
+   
+   
+    myind <- rass %>% 
+     select(nNQI1, nAMBI, nShannon) %>% 
+     #select(nNQI1) %>% 
+     as.matrix() 
+     myind %>% 
+     heatmap.2(dendogram = "row", srtCol=0,   adjCol = c(0.5,1)) 
+
+# data_long <- myind %>%
+# tibble::rownames_to_column("Site_Year") %>%
+# tidyr::separate(Site_Year, into = c("Year", "Site"), sep = "\\.") %>%
+# tidyr::pivot_longer(cols = c(nNQI1, nAMBI, nShannon), names_to = "Index", values_to = "Value")     
+#      
+# ggplot(data_long %>% dplyr::filter(Index == "nNQI1"), 
+#        aes(x = Year, y = Value, color = Site, group = Site, shape = Site)) +
+#   geom_line() +
+#   geom_point(size = 3) +
+#   theme_minimal() +
+#   labs(title = "nNQI1 Index Over Time by Sampling Site",
+#        y = "nNQI1 Value",
+#        color = "Sampling Site",
+#        shape = "Sampling Site") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   scale_shape_manual(values = c(16, 17, 18, 15, 19, 8)) +
+#   scale_color_brewer(palette = "Set2")
+```
+
+```{r nAMBI_ind, fig.width=10, fig.height=8}
+
+BBIlisti <- list()
+BBIastand <- list()
+nEQR <- list()
+
+for (i in unique(jorundur$Artal)) {
+    my_BBI <- jorundur %>%
+        filter(Artal == i) %>%
+        filter(stod %in% c("C4", "A7", "B5", "B8", "E4", "E3")) %>%
+        group_by(Artal, stod, Flokkun) %>%
+        summarise(N = sum(N), .groups = 'drop') %>%
+        dplyr::select(-Artal) %>% 
+        pivot_wider(names_from = stod, values_from = N) %>% 
+        BBI()
+    
+    # calculating nEQR values and ecological quality status
+    BBIlisti[[i]] <- as.data.frame(cbind(my_BBI$BBI, Artal=i))
+    BBIastand[[i]] <- my_BBI$BBIclass
+    nEQR[[i]] <- as.data.frame(nEQR(my_BBI$BBI)[1])
+}
+
+rass <- do.call(rbind, plyr::compact(nEQR))
+names(rass) <- c("nAMBI","nISI","nNSI","nNQI1","nShannon","nEQR")
+
+# Reshape rass to long format
+rass_long <- rass %>%
+    tibble::rownames_to_column("row_name") %>%
+    tidyr::separate(row_name, into = c("Artal", "stod"), sep = "\\.") %>%
+    tidyr::pivot_longer(cols = c(nAMBI, nISI, nNSI, nNQI1, nShannon, nEQR),
+                        names_to = "index",
+                        values_to = "Skor")
+
+# Convert Artal to factor with the same levels as in jorundur
+rass_long$Artal <- factor(rass_long$Artal, levels = levels(jorundur$Artal))
+
+# Reorder columns to match tafla structure
+rass_long <- rass_long %>%
+    dplyr::select(Artal, stod, index, Skor)
+
+# Print the structure of the new rass dataframe
+str(rass_long)
+
+# Print the first few rows
+head(rass_long)
+
+```
+
+```{r nAMBI_heatmap, fig.width=10, fig.height=8}
+
+# Extract AMBI data
+AMBI_data <- rass_long[rass_long$index == "nNQI1",]
+
+# Function to categorize AMBI values
+categorize_AMBI <- function(value) {
+  case_when(
+    value >= 0.83 ~ "High",
+    value >= 0.72 ~ "Good",
+    value >= 0.6 ~ "Moderate",
+    value >= 0.48 ~ "Poor",
+    TRUE ~ "Bad"
+  )
+}
+
+# Categorize AMBI values
+AMBI_data$Category <- categorize_AMBI(AMBI_data$Skor)
+
+# Create a matrix of categories
+stations <- unique(AMBI_data$stod)
+years <- unique(AMBI_data$Artal)
+category_matrix <- matrix(NA,
+                          nrow = length(stations),
+                          ncol = length(years),
+                          dimnames = list(stations, years))
+
+for(i in 1:nrow(AMBI_data)) {
+  category_matrix[AMBI_data$stod[i], as.character(AMBI_data$Artal[i])] <- AMBI_data$Category[i]
+}
+
+# Define color palette for categories
+category_colors <- c("High" = "darkgreen", "Good" = "lightgreen", 
+                     "Moderate" = "yellow", "Poor" = "orange", "Bad" = "red")
+
+# Create numeric matrix for coloring
+numeric_matrix <- matrix(match(category_matrix, names(category_colors)),
+                         nrow = nrow(category_matrix), ncol = ncol(category_matrix))
+
+# Set up the PNG device
+#png("AMBI_heatmap.png", width = 800, height = 600, units = "px", res = 100)
+
+# Create the heatmap
+par(mar = c(5, 6, 4, 4) + 0.1)  # Increase margin size
+image(1:ncol(numeric_matrix), 1:nrow(numeric_matrix), t(numeric_matrix),
+      col = category_colors, xlab = "", ylab = "",
+      axes = FALSE, main = "Ecological Status Based on AMBI")
+
+# Add axes and labels
+axis(1, at = 1:ncol(category_matrix), labels = colnames(category_matrix), las = 2)
+axis(2, at = 1:nrow(category_matrix), labels = rownames(category_matrix), las = 2)
+mtext("Year", side = 1, line = 3.5)
+mtext("Sampling Station", side = 2, line = 4.5)
+
+# Add categories to cells
+for(i in 1:nrow(category_matrix)) {
+  for(j in 1:ncol(category_matrix)) {
+    if(!is.na(category_matrix[i,j])) {
+      text(j, i, category_matrix[i,j], col = "black", cex = 0.7)
+    }
+  }
+}
+
+# Add legend
+# legend("bottom", legend = names(category_colors), 
+#        fill = category_colors, horiz = TRUE, cex = 0.8)
+
+# Add annotation
+mtext("AMBI: Higher values indicate poorer ecological status", side = 1, line = 4.5, cex = 0.8)
+
+# Close the PNG device
+#dev.off()
+
+# Print the data for inspection
+print(AMBI_data)
+```
+
+
+```{r AMBImynd, echo=FALSE, message=FALSE, warning=FALSE}
+library(benthos)
+tafla <- jorundur %>%
+  # Uncomment the next line if you need to filter specific stations
+  # filter(stod %in% c("C4", "A7", "B5", "B8", "E4", "E3")) %>%
+  group_by(Artal, stod) %>%
+  summarize(
+    Nn = total_abundance(count = N),
+    S = species_richness(taxon = Flokkun, count = N),
+    D_Margalef = margalef(taxon = Flokkun, count = N),
+    SN_Rygg = rygg(taxon = Flokkun, count = N),
+    SNa_Rygg = rygg(taxon = Flokkun, count = N, adjusted = TRUE),
+    H = shannon(taxon = Flokkun, count = N),
+    AMBI = ambi(taxon = Flokkun, count = N),
+    .groups = 'drop'  # This ensures that the result is not grouped
+  ) %>%
+  pivot_longer(cols = c(Nn, S, D_Margalef, SN_Rygg, SNa_Rygg, H, AMBI),
+               names_to = "index", values_to = "Skor")
+
+# Extract AMBI data
+AMBI_data <- tafla[tafla$index == "AMBI",]
+
+# Function to categorize AMBI values
+categorize_AMBI <- function(value) {
+  case_when(
+    value <= 1.2 ~ "High",
+    value <= 3.3 ~ "Good",
+    value <= 4.3 ~ "Moderate",
+    value <= 5.5 ~ "Poor",
+    TRUE ~ "Bad"
+  )
+}
+
+# Categorize AMBI values
+AMBI_data$Category <- categorize_AMBI(AMBI_data$Skor)
+
+# Create a matrix of categories
+stations <- unique(AMBI_data$stod)
+years <- unique(AMBI_data$Artal)
+category_matrix <- matrix(NA,
+                          nrow = length(stations),
+                          ncol = length(years),
+                          dimnames = list(stations, years))
+
+for(i in 1:nrow(AMBI_data)) {
+  category_matrix[AMBI_data$stod[i], as.character(AMBI_data$Artal[i])] <- AMBI_data$Category[i]
+}
+
+# Define color palette for categories
+category_colors <- c("High" = "darkgreen", "Good" = "lightgreen", 
+                     "Moderate" = "yellow", "Poor" = "orange", "Bad" = "red")
+
+# Create numeric matrix for coloring
+numeric_matrix <- matrix(match(category_matrix, names(category_colors)),
+                         nrow = nrow(category_matrix), ncol = ncol(category_matrix))
+
+# Set up the PNG device
+#png("AMBI_heatmap.png", width = 800, height = 600, units = "px", res = 100)
+
+# Create the heatmap
+par(mar = c(5, 6, 4, 4) + 0.1)  # Increase margin size
+image(1:ncol(numeric_matrix), 1:nrow(numeric_matrix), t(numeric_matrix),
+      col = category_colors, xlab = "", ylab = "",
+      axes = FALSE, main = "Ecological Status Based on AMBI")
+
+# Add axes and labels
+axis(1, at = 1:ncol(category_matrix), labels = colnames(category_matrix), las = 2)
+axis(2, at = 1:nrow(category_matrix), labels = rownames(category_matrix), las = 2)
+mtext("Year", side = 1, line = 3.5)
+mtext("Sampling Station", side = 2, line = 4.5)
+
+# Add categories to cells
+for(i in 1:nrow(category_matrix)) {
+  for(j in 1:ncol(category_matrix)) {
+    if(!is.na(category_matrix[i,j])) {
+      text(j, i, category_matrix[i,j], col = "black", cex = 0.7)
+    }
+  }
+}
+
+# Add legend
+# legend("bottom", legend = names(category_colors), 
+#        fill = category_colors, horiz = TRUE, cex = 0.8)
+
+# Add annotation
+mtext("AMBI: Higher values indicate poorer ecological status", side = 1, line = 4.5, cex = 0.8)
+
+# Close the PNG device
+#dev.off()
+
+# Print the data for inspection
+print(AMBI_data)
+
+```
+
+
+
+Niðurstöður úr setgerðarrannsokninni lesnar inn.
+```{r kornast_organic_tap_dypi, message=FALSE, warning=FALSE, include=FALSE}
+kornast_organic_tap_dypi <- structure(list(stod = c("A7", "A7", "A7", "A7", "A7", "B5", "B5", 
+"B5", "B5", "B5", "B8", "B8", "B8", "B8", "B8", "C4", "C4", "C4", 
+"C4", "C4", "E3", "E3", "E3", "E3", "E3", "E4", "E4", "E4", "E4", 
+"E4"), Artal = c("2013", "2014", "2015", "2016", "2017", "2013", 
+"2014", "2015", "2016", "2017", "2013", "2014", "2015", "2016", 
+"2017", "2013", "2014", "2015", "2016", "2017", "2013", "2014", 
+"2015", "2016", "2017", "2013", "2014", "2015", "2016", "2017"
+), `20um` = c(0.628496042216359, 0.343339587242026, 0.453474676089517, 
+0.390734265734266, 0.643465909090909, 0.386002120890774, 0.321766561514196, 
+0.386792452830189, 0.19559585492228, 0.546637744034707, 0.592529025744573, 
+0.515981735159817, 0.369913686806412, 0.424997544719429, 0.221565731166913, 
+0.332928794917986, 0.153116531165312, 0.234791889007471, 0.190773067331671, 
+0.152190051967335, 0.385025817555938, 0.211453744493392, 0.157303370786517, 
+0.0827048768225239, 0.247269116186693, 0.426682936750051, 0.406354515050167, 
+0.214331413947537, 0.0125582337451894, 0.286830357142857), `63um` = c(0.350395778364116, 
+0.24577861163227, 0.215547703180212, 0.215909090909091, 0.151988636363636, 
+0.52661717921527, 0.342271293375394, 0.304245283018868, 0.348445595854922, 
+0.31236442516269, 0.317491166077739, 0.23972602739726, 0.276202219482121, 
+0.278886610994081, 0.282127031019202, 0.306115483075756, 0.276422764227642, 
+0.257203842049093, 0.17643391521197, 0.197475872308834, 0.379173838209983, 
+0.177679882525698, 0.143392188336009, 0.0935143288084465, 0.200595829195631, 
+0.438071995118975, 0.29933110367893, 0.211772232885477, 0.0256734859226251, 
+0.266741071428571), `125um` = c(0.0100263852242744, 0.315196998123827, 
+0.267373380447585, 0.284965034965035, 0.177556818181818, 0.0752916224814422, 
+0.32807570977918, 0.295990566037736, 0.399611398963731, 0.134490238611714, 
+0.0261736496718829, 0.237442922374429, 0.327990135635019, 0.240590007791825, 
+0.370753323485968, 0.319370437091116, 0.485094850948509, 0.44076840981857, 
+0.350997506234414, 0.528582034149963, 0.207194492254733, 0.281938325991189, 
+0.173354735152488, 0.283810960281549, 0.201588877855015, 0.104535285743339, 
+0.249163879598662, 0.19065898912348, 0.0339781243670245, 0.280133928571429
+), `250um` = c(0.0058047493403694, 0.0956848030018762, 0.0459363957597173, 
+0.0734265734265734, 0.00852272727272727, 0.00742311770943797, 
+0.00788643533123028, 0.0129716981132075, 0.0518134715025907, 
+0.00650759219088937, 0.0553003533568905, 0.00684931506849315, 
+0.0135635018495684, 0.0384999321551487, 0.0782865583456425, 0.0337347112923107, 
+0.0569105691056911, 0.0448239060832444, 0.180174563591022, 0.0972531551596139, 
+0.0236660929432013, 0.0558002936857562, 0.0358480470840021, 0.0834590246354952, 
+0.041708043694141, 0.0213544844417328, 0.0133779264214047, 0.0300703774792067, 
+0.00212679765039498, 0.0223214285714286), `1000um` = c(0.00527704485488127, 
+0, 0.0176678445229682, 0.034965034965035, 0.0184659090909091, 
+0.00466595970307529, 0, 0, 0.00453367875647668, 0, 0.00850580514891469, 
+0, 0.0123304562268804, 0.0170259043395175, 0.0472673559822747, 
+0.00785057362283114, 0.0284552845528455, 0.0224119530416222, 
+0.101620947630923, 0.0244988864142539, 0.00493975903614458, 0.273127753303965, 
+0.490101658640984, 0.456510809451986, 0.30883813306852, 0.00935529794590197, 
+0.0317725752508361, 0.353166986564299, 0.925663358314766, 0.143973214285714
+), tap = c(0.181515414138913, 0.117573294968505, 0.118865354458575, 
+0.10855175801997, 0.144215480661367, 0.174146595044186, 0.119127447894571, 
+0.124407020872865, 0.105198658268468, 0.115848718019756, 0.178503108560497, 
+0.12940849965294, 0.117179453375411, 0.111245191819955, 0.116370341491164, 
+0.142787808192584, 0.113006923837784, 0.132290387475618, 0.0969106601341345, 
+0.10220582768636, 0.215412621359223, 0.101006035443262, 0.090402518790167, 
+0.0885715142546809, 0.0796504565039956, 0.135196812364163, 0.126232974506719, 
+0.103923910552975, 0.092065868263473, 0.101525813669742), sd = c(0.00544534378975074, 
+0.000976059208807937, 0.00105675176697187, 0.00129099190584701, 
+0.010280862872346, 0.00245055200549895, 0.000348361831630225, 
+0.00083859912379809, 0.001823914492673, 0.000495255850064288, 
+0.010990421037094, 0.000600243017338078, 0.00277626938387639, 
+0.000420021748488332, 0.0014744503375705, 0.0199049666612412, 
+0.00034970661779751, 0.00314117917812511, 0.000215745910008022, 
+0.000435189983246506, 0.127862755335917, 0.000119010118739825, 
+0.00226462935582809, 0.00132600786385895, 0.00243540659124004, 
+0.0118334943096431, 0.000449569977393725, 0.000285425329099763, 
+0.00246993386642007, 0.000814994916882806), dypi = c(16.6, 16.6, 
+16.6, 16.6, 16.6, 24.5, 24.5, 24.5, 24.5, 24.5, 16.6, 16.6, 16.6, 
+16.6, 16.6, 34, 34, 34, 34, 34, 11.2, 11.2, 11.2, 11.2, 11.2, 
+11, 11, 11, 11, 11), `Síld 2013` = c(0L, 0L, 0L, 0L, 0L, 1L, 
+1L, 1L, 1L, 1L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 1L, 1L, 
+1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L)), row.names = c(NA, -30L), class = "data.frame")
+
+# Next time I open next time
+# the loss of organic material is in the columns tap
+
+```
+
+```{r setgerd}
+result <- kornast_organic_tap_dypi %>%
+    dplyr::select(-tap, -sd, -`Síld 2013`, -dypi) %>%
+    group_by(stod) %>%
+    summarise(across(c(`20um`, `63um`, `125um`, `250um`, `1000um`), 
+                     list(mean = mean, var = var), .names = "{.col}_{.fn}")) %>%
+    mutate(across(ends_with("_mean"), 
+                  ~ . / rowSums(dplyr::select(cur_data(), ends_with("_mean"))), 
+                  .names = "{.col}_prop")) %>%
+    mutate(total_variance = rowSums(dplyr::select(., ends_with("_var"))))
+
+
+plot_data <- result %>%
+    dplyr::select(stod, dplyr::ends_with("_prop"), total_variance) %>%
+    tidyr::pivot_longer(cols = dplyr::ends_with("_prop"), 
+                        names_to = "particle_size", 
+                        values_to = "proportion",
+                        names_pattern = "(.+)_mean_prop") %>%
+    mutate(particle_size = factor(particle_size, 
+                                  levels = c("20um", "63um", "125um", "250um", "1000um"),
+                                  ordered = TRUE))
+
+# Create the plot
+ggplot(plot_data) +
+    geom_col(aes(x = stod, y = proportion, fill = particle_size)) +
+    geom_line(aes(x = stod, y = total_variance / max(total_variance), group = 1), 
+              data = plot_data %>% distinct(stod, .keep_all = TRUE), color = "red") +
+    geom_point(aes(x = stod, y = total_variance / max(total_variance)), 
+               data = plot_data %>% distinct(stod, .keep_all = TRUE), color = "red", size = 3) +
+    scale_fill_viridis_d(direction = -1) +  # Use viridis color palette
+    scale_y_continuous(name = "Proportion", 
+                       sec.axis = sec_axis(~.*max(plot_data$total_variance), name = "Total Variance")) +
+    labs(title = "Particle Size Distribution and Total Variance by Station",
+         x = "Station", fill = "Particle Size") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position = "bottom")
+#ggsave("ParticleSizeVar.png", width = 10, height = 8, dpi = 300, bg="white")
+```
+
+```{r setgerdE}
+plot_data <- kornast_organic_tap_dypi %>%
+    dplyr::filter(stod %in% c("E3", "E4")) %>%
+    dplyr::select(stod, Artal, `20um`, `63um`, `125um`, `250um`, `1000um`) %>%
+    tidyr::pivot_longer(cols = c(`20um`, `63um`, `125um`, `250um`, `1000um`), 
+                 names_to = "grain_size", 
+                 values_to = "proportion")
+plot <- ggplot(plot_data, aes(x = Artal, y = proportion, fill = stod)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~grain_size, scales = "free_y", nrow = 2) +
+  scale_fill_manual(values = c("E3" = "#1b9e77", "E4" = "#d95f02")) +
+  labs(title = "Grain Size Proportions in Stations E3 and E4",
+       x = "Year",
+       y = "Proportion",
+       fill = "Station") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        strip.background = element_rect(fill = "lightgrey"),
+        strip.text = element_text(face = "bold")) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))
+
+print(plot)
+```
+
+```{r setgerdBReg}
+
+# Function to run beta regression for each grain size
+run_beta_regression <- function(grain_size) {
+    # Prepare data
+    data <- kornast_organic_tap_dypi %>%
+        dplyr::select(stod, Artal, !!grain_size) %>%
+        dplyr::rename(proportion = !!grain_size)
+    
+    # Adjust proportions to avoid 0 and 1
+    data$prop_adj <- (data$proportion * (nrow(data) - 1) + 0.5) / nrow(data)
+    
+    # Run beta regression
+    model <- betareg(prop_adj ~ Artal + stod, data = data)
+    
+    return(model)
+}
+
+# Run beta regression for each grain size
+grain_sizes <- c("20um", "63um", "125um", "250um", "1000um")
+models <- lapply(grain_sizes, run_beta_regression)
+
+# Print summaries
+for (i in seq_along(grain_sizes)) {
+    cat("\nBeta Regression for", grain_sizes[i], "\n")
+    print(summary(models[[i]]))
+    cat("\n-----------------------------------\n")
+}
+```
+
+Loss on ignition
+```{r LOI}
+
+
+# Kruskal-Wallis test for years
+kruskal_year <- kruskal.test(tap ~ Artal, data = kornast_organic_tap_dypi)
+print("Kruskal-Wallis test results for years:")
+print(kruskal_year)
+
+# Dunn's test for years if Kruskal-Wallis is significant
+if(kruskal_year$p.value < 0.05) {
+    dunn_year <- dunn.test(kornast_organic_tap_dypi$tap, kornast_organic_tap_dypi$Artal, 
+                           method="bonferroni")
+    print("Dunn's test results for years:")
+    print(dunn_year)
+}
+
+# Calculate and print median values for each year
+median_year <- tapply(kornast_organic_tap_dypi$tap, kornast_organic_tap_dypi$Artal, median)
+print("Median values for each year:")
+print(median_year)
+
+# Kruskal-Wallis test for stations
+kruskal_station <- kruskal.test(tap ~ stod, data = kornast_organic_tap_dypi)
+print("Kruskal-Wallis test results for stations:")
+print(kruskal_station)
+
+# Dunn's test for stations if Kruskal-Wallis is significant
+if(kruskal_station$p.value < 0.05) {
+    dunn_station <- dunn.test(kornast_organic_tap_dypi$tap, kornast_organic_tap_dypi$stod, 
+                              method="bonferroni")
+    print("Dunn's test results for stations:")
+    print(dunn_station)
+}
+
+# Calculate and print median values for each station
+median_station <- tapply(kornast_organic_tap_dypi$tap, kornast_organic_tap_dypi$stod, median)
+print("Median values for each station:")
+print(median_station)
+
+# Boxplot for visual comparison
+#png("organic_matter_boxplots.png", width = 10, height = 5, units = "in", res = 300)
+
+# Set up the plotting area
+par(mfrow=c(1,2), mar = c(5, 4, 4, 2) + 0.1)
+
+# Create the boxplots
+boxplot(tap ~ Artal, data = kornast_organic_tap_dypi, main="Organic Matter by Year", 
+        xlab="Year", ylab="Organic Matter Content",
+        cex.axis = 0.8, cex.lab = 0.9, cex.main = 1)
+boxplot(tap ~ stod, data = kornast_organic_tap_dypi, main="Organic Matter by Station", 
+        xlab="Station", ylab="Organic Matter Content",
+        cex.axis = 0.8, cex.lab = 0.9, cex.main = 1)
+
+# Close the PNG device
+#dev.off()
+
+```
+
+Flokkunin og setsýnin tekin saman í eitt skjal.
+```{r MergeSep, message=FALSE, warning=FALSE, include=FALSE}
+
+# Aggregate data to sum 'N' values for duplicate rows
+#data1_agg <- jorundur %>% group_by(Artal, stod, Flokkun) %>% summarise(N = sum(N))
+data1_agg <- jorundur %>%
+  group_by(Artal, stod, Flokkun) %>%
+  summarise(N = sum(N), .groups = "drop")
+# Prepare data for ordination
+data1_wide <- data1_agg %>% spread(key = Flokkun, value = N, fill = 0)
+
+merged_data <- merge(data1_wide, kornast_organic_tap_dypi, by = c("Artal", "stod")) # Hér dettur 1999 út
+rownames(merged_data) <- paste(merged_data$Artal, merged_data$stod, sep = "_")
+merged_data <- merged_data[, -c(1,2)] # Remove the 'Year' and 'Station' columns
+
+# Separate environmental and species data
+env_data <- merged_data[, c("20um","63um","125um","250um","1000um","tap","sd","dypi", "Síld 2013")]
+species_data <- merged_data[, !(names(merged_data) %in% c("20um","63um","125um","250um","1000um","tap","sd","dypi", "Síld 2013"))]
+
+```
+
+# General description of computer methods
+Counts of individuals were read in to R (R,2023) and scaled to account for Sub-sampling and sampling area. Sub-sampling refers to the process of selecting a subset of samples after removing the largest organisms (those visible through a magnifying glass). Endecotts sample divider was used to divide the samples into two parts three times. Scaling to individuals per square meter was based on the size of the bottom grab, which was 0.04 m² during the years 2013-2017 and 0.0225 m² for the year 1999. The number of samples per station varied between studies, with one sample per station in 1999 and three samples per station during the years 2013-2017.
+
+Data is summarized to year, station and species and merged with the environmental variables such as depth, percentage organic material in sediment, and grain size proportion in sediment. This integration allows for the exploration of how environmental factors influence species distribution, abundance, and community structure. 
+
+# Decorana
+Decorana helps to identify and understand the main patterns of species variation and their relationships to environmental variables. It is a dimensionality reduction technique commonly used in ecological research to uncover the underlying ecological gradients or factors that structure species composition. 
+
+By applying decorana, it is possible to assess the distribution of species along the environmental gradients and determine if there are any significant associations between species composition and environmental factors. The resulting ordination plot provides a visual representation of the dissimilarities between samples and the relative positions of species along the identified gradients. This analysis aids in the interpretation of species-environment relationships, community assembly processes, and potential ecological drivers shaping the observed patterns.
+
+Decorana (dca) hentar ekki.
+```{r Decorana, eval=FALSE, include=FALSE}
+dca <- decorana(species_data)
+dca # fyrsti DCA-ásinn eftir decorana() er >4
+# Get sample scores
+sample_scores <- scores(dca, display = "sites")
+species_scores <- scores(dca, display = "species")
+
+
+combined_scores <- rbind(data.frame(Scores = sample_scores, Labels = row.names(sample_scores), Type = "Sample"),
+data.frame(Scores = species_scores, Labels = row.names(species_scores), Type = "Species"))
+
+# Set up the plotting area
+#plot(sample_scores, type = "n", main = "Detrended Correspondence Analysis (DCA)",
+#     xlab = "DCA Axis 1", ylab = "DCA Axis 2")
+# Add points for samples
+#points(sample_scores, pch = 21, col = "black", bg = "white")
+#text(sample_scores, labels = row.names(sample_scores), col = "black", pos = 3, cex = 0.8)
+# Get species scores
+# Add species points
+#points(species_scores, pch = 21, col = "red", bg = "white")
+# Add species labels
+#text(species_scores, labels = row.names(species_scores), col = "red", pos = 3, cex = 0.8)
+
+# Create the DCA plot með ggplot
+p <- ggplot(combined_scores, aes(x = Scores.DCA1, y = Scores.DCA2, color = Type, label = Labels)) +
+    geom_point() +
+    geom_text_repel(size = 2, max.overlaps = Inf) + # Increase max.overlaps to allow more overlaps
+    labs(title = "Detrended Correspondence Analysis (DCA)",
+         x = "DCA Axis 1",
+         y = "DCA Axis 2") +
+    theme_minimal() +
+    scale_color_manual(values = c("Sample" = "black", "Species" = "red"))
+
+  #plotly::ggplotly(p)
+  p
+```
+
+Based on the DCA output, the gradient lengths for the first and second axes are **4.0100** and **2.5018**, respectively. The first DCA axis has a gradient length greater than 4, which indicates a strong species turnover along the primary gradient. This suggests that unimodal ordination methods, such as CA or CCA, are more appropriate for the data, as these methods are designed to handle data with strong species turnover.
+
+The second DCA axis has a gradient length of 2.5018, which indicates a weaker species turnover along the secondary gradient. In this case, linear ordination methods like PCA or RDA might be suitable for analyzing patterns along the secondary gradient. However, since the primary gradient is more critical in determining the overall pattern of species composition, it's usually recommended to choose an ordination method based on the primary gradient.
+
+Given the gradient lengths from the DCA output, unimodal ordination methods like CA or CCA are suitable for handling the strong species turnover observed along the primary gradient in the data.
+
+When the species turnover along the primary gradient is strong, unimodal ordination methods like Correspondence Analysis (CA) or Canonical Correspondence Analysis (CCA) are more suitable, as they are designed to handle data with a high degree of species turnover. These methods are based on the assumption that species show a unimodal response to underlying environmental gradients, meaning that each species has an optimal range of conditions along the gradient where it is most abundant. Unimodal ordination methods can better capture the patterns of species composition when species exhibit strong turnover along the primary gradient.
+
+In contrast, when species turnover along the primary gradient is weak, linear ordination methods like Principal Components Analysis (PCA) or Redundancy Analysis (RDA) may be more appropriate. These methods assume that species exhibit linear relationships with environmental variables, and they are better suited for datasets with less pronounced species turnover along the gradients.
+
+Species turnover, also known as beta diversity, refers to the change in species composition across different sites or samples along a gradient. The primary gradient typically represents the main underlying environmental factor or combination of factors that drive the observed changes in species composition in the dataset.
+
+In the context of ordination methods, a species turnover along the primary gradient means that there is a substantial change in the species composition from one end of the gradient to the other. This turnover can be due to various reasons, such as differing environmental conditions, resource availability, or competition among species.
+
+# Time as a variable
+In the context of ecological disasters or disturbances, time can indeed be considered as an environmental factor. While depth, percentage organic material in sediment, and grain size proportion are typically regarded as direct environmental variables, time can indirectly influence community composition by acting as a proxy for the recovery or restoration process following the ecological disaster.
+
+Following a catastrophic event that wipes out the fauna, the community composition may undergo changes over time as the ecosystem gradually recovers. Succession processes, colonization by new species, and changes in environmental conditions over time can all contribute to shifts in community composition.
+
+By incorporating time as an environmental factor in your analysis, you can examine how community composition changes or recovers over different time periods following the ecological disaster. This approach allows you to assess the temporal dynamics of the community and investigate the effects of time on the recovery and re-establishment of species assemblages.
+
+Therefore, in this case, considering time as an environmental factor is appropriate to capture the temporal component and its influence on the community composition following the ecological disaster.
+
+
+```{r Time, eval=FALSE, include=FALSE}
+
+# Extract the year from the rownames
+merged_data$Year <- substr(rownames(merged_data), 1, 4)
+
+# Convert the Year variable to a factor
+merged_data$Year <- factor(merged_data$Year)
+
+# Assuming you have the merged_data containing species data and environmental variables
+
+# Perform CCA
+cca_result <- cca(species_data ~ ., data = merged_data)
+
+envfit_result <- envfit(cca_result, merged_data$Year)
+
+# Plot the ordination biplot
+plot(cca_result, type = "n")  # Create empty plot
+text(cca_result, display = "species")  # Add species scores to the plot
+plot(envfit_result, p.max = 0.05, col = "red", add = TRUE)  # Add environmental variables overlay
+
+
+# Add legend for the environmental variables
+legend("topleft", legend = "Year", pch = 16, col = "red")
+
+
+```
+Figure x: Ordination biplot displaying species composition and environmental variable overlay.
+
+The ordination biplot showcases the species composition of the studied ecosystem along with the overlay of the environmental variable "Year." The analysis was performed using Canonical Correspondence Analysis (CCA) to understand the relationship between species distribution and the temporal gradient represented by the years of sampling.
+
+The species scores are represented by labeled points in the biplot, indicating their position in the ordination space. The environmental variable overlay, shown in red, illustrates the fitted values of the "Year" variable on the ordination axes. The overlay helps visualize the relationship between species distribution patterns and temporal changes captured by the "Year" variable.
+
+Significant correlations between the "Year" variable and the ordination axes are indicated by the red lines connecting the overlay to the biplot. The statistical significance and strength of the correlation are denoted by the p-value and the squared correlation coefficient (R-squared), respectively.
+
+This figure provides insights into how the temporal factor, represented by the "Year" variable, influences the observed patterns in species composition. The analysis highlights the importance of considering temporal dynamics when studying ecological communities.
+
+Legend: The red color and "Year" label represent the environmental variable overlay.
+
+Note: The analysis and visualization were conducted using the vegan package in R (version X.X.X).
+
+The number "1" displayed on the red line in the figure represents the R-squared value (coefficient of determination) for the correlation between the "Year" variable and the ordination axes.
+
+The R-squared value is a measure of the proportion of variation in the species composition that can be explained by the "Year" variable. In this case, an R-squared value of 1 indicates a perfect correlation between the "Year" variable and the ordination axes, suggesting that the temporal gradient captured by the "Year" variable explains all the observed variation in species composition.
+
+Please note that an R-squared value of 1 may be indicative of an issue, such as overfitting or perfect collinearity, especially if the dataset is small. It is important to interpret the results cautiously and consider other factors that could influence the observed patterns in species composition.
+
+
+
+# CCA
+Given the gradient lengths from your DCA output, the next step is to perform a unimodal ordination method, such as Canonical Correspondence Analysis (CCA), to analyze the relationship between species composition and environmental variables.
+```{r CCA}
+
+cca_result <- cca(species_data ~ ., data = env_data)
+plot(cca_result)
+
+# Add points with the labels
+text(cca_result, display = "sites", col = "red")
+
+anova_result <- anova(cca_result, by = "terms", perm = 999)
+print(anova_result)
+
+
+```
+
+
+
+The output you provided shows the results of the permutation test for the Canonical Correspondence Analysis (CCA) under the reduced model. The test assesses the significance of the environmental variables in explaining the species composition in your data.
+
+The table displays the degrees of freedom (Df), Chi-square values, F statistics, and p-values (Pr(>F)) for each environmental variable, as well as the residual. The p-values indicate the significance of the relationship between each environmental variable and species composition, with smaller p-values suggesting a stronger relationship.
+
+According to the results:
+
+20um (***): Highly significant relationship (p < 0.001)
+63um (**): Significant relationship (p = 0.007)
+125um (*): Significant relationship (p = 0.033)
+250um: Not significant (p = 0.240)
+tap: Not significant (p = 0.182)
+sd: Not significant (p = 0.730)
+dypi: Not significant (p = 0.147)
+Síld 2013: Not significant (p = 0.136)
+
+Based on these results, it appears that the environmental variables 20um, 63um, and 125um have significant relationships with species composition in your data. The other environmental variables (250um, tap, sd, dypi, and Síld 2013) do not show significant relationships.
+
+You can use these results to help interpret the CCA ordination plot, identify the main environmental drivers of species composition, and guide further analysis or data collection.
+
+```{r CCA_cursor}
+library(vegan)
+
+# Step 1: Perform initial CCA with all variables
+full_model <- cca(species_data ~ ., data = env_data)
+
+# Step 2: Perform forward selection
+forward_sel <- ordistep(cca(species_data ~ 1, data = env_data), 
+                        scope = formula(full_model), 
+                        direction = "forward",
+                        permutations = 999)
+
+# Step 3: Print the results
+summary(forward_sel)
+
+# Step 4: Get the selected variables
+selected_vars <- attr(forward_sel$terms, "term.labels")
+
+# Step 5: Create a new formula with selected variables
+if(length(selected_vars) > 0) {
+    selected_formula <- as.formula(paste("species_data ~", paste(selected_vars, collapse = " + ")))
+} else {
+    stop("No variables were selected in the forward selection process.")
+}
+
+# Step 6: Run the final CCA with selected variables
+final_cca <- cca(selected_formula, data = env_data)
+
+# Step 7: Check the results
+summary(final_cca)
+anova(final_cca)
+```
+
+
+Laga stöðvarheiti í dendrogramminu:
+```{r multivariate_analysis}
+
+# Properly summarize the data
+species_data <- jorundur %>%
+  filter(Artal != 1999) %>%
+  dplyr::group_by(stod, Artal, Flokkun) %>%
+  dplyr::summarise(N = sum(N), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = Flokkun, values_from = N, values_fill = 0) %>%
+  mutate(
+    Station = factor(stod, levels = c("C4", "E3", "E4", "B5", "B8", "A7")),
+    Year = factor(Artal)
+  ) %>%
+  dplyr::select(-stod, -Artal)  # Remove the original stod and Artal columns
+
+# Create year_group
+species_data$year_group <- factor(ifelse(species_data$Year %in% c("2013", "2014"), "Early", 
+                                         ifelse(species_data$Year %in% c("2016", "2017"), "Late", NA)))
+
+# Separate environmental variables and species data
+env_data <- species_data %>% dplyr::select(Station, Year, year_group)
+species_matrix <- species_data %>% dplyr::select(-Station, -Year, -year_group) %>% as.matrix()
+
+# 1. PERMANOVA
+permanova <- adonis2(species_matrix ~ Station + Year, data = env_data, permutations = 999, method = "bray")
+print(permanova)
+
+# 2. NMDS
+nmds <- metaMDS(species_matrix, distance = "bray")
+
+# Extract site scores
+site_scores <- as.data.frame(scores(nmds, display = "sites"))
+site_scores$Station <- env_data$Station
+site_scores$Year <- env_data$Year
+
+# Extract species scores
+species_scores <- as.data.frame(scores(nmds, display = "species"))
+
+# Plot NMDS
+nmds_plot <- ggplot() +
+    geom_point(data = site_scores, aes(x = NMDS1, y = NMDS2, color = Station, shape = Year), size = 3) +
+    geom_text(data = species_scores, aes(x = NMDS1, y = NMDS2, label = rownames(species_scores)), 
+              size = 3, alpha = 0.5) +
+    theme_minimal() +
+    labs(title = "NMDS of Community Composition")
+
+print(nmds_plot)
+
+# 3. SIMPER
+simper_data <- species_matrix[!is.na(env_data$year_group), ]
+simper_group <- env_data$year_group[!is.na(env_data$year_group)]
+
+simper_result <- simper(simper_data, group = simper_group, permutations = 999)
+print(summary(simper_result))
+
+# 4. Trajectory Analysis
+trajectory_plot <- ggplot(site_scores, aes(x = NMDS1, y = NMDS2, color = Station, label = Year)) +
+    geom_point(size = 3) +
+    geom_path(aes(group = Station)) +
+    geom_text(nudge_x = 0.05, nudge_y = 0.05) +
+    theme_minimal() +
+    labs(title = "Community Trajectory Over Years by Station")
+
+print(trajectory_plot)
+
+# 5. Species Richness and Diversity Indices
+richness <- specnumber(species_matrix)
+shannon <- diversity(species_matrix, index = "shannon")
+simpson <- diversity(species_matrix, index = "simpson")
+
+diversity_df <- data.frame(
+    Station = env_data$Station,
+    Year = env_data$Year,
+    Richness = richness,
+    Shannon = shannon,
+    Simpson = simpson
+)
+
+# Plot diversity indices
+richness_plot <- ggplot(diversity_df, aes(x = Year, y = Richness, color = Station, group = Station)) +
+    geom_line() +
+    geom_point() +
+    theme_minimal() +
+    labs(title = "Species Richness Over Time by Station")
+
+shannon_plot <- ggplot(diversity_df, aes(x = Year, y = Shannon, color = Station, group = Station)) +
+    geom_line() +
+    geom_point() +
+    theme_minimal() +
+    labs(title = "Shannon Diversity Over Time by Station")
+
+print(richness_plot)
+print(shannon_plot)
+
+# 6. Cluster Analysis
+cluster_analysis <- hclust(vegdist(species_matrix, method = "bray"), method = "average")
+plot(cluster_analysis, main = "Cluster Analysis of Samples", xlab = "Samples", ylab = "Bray-Curtis Dissimilarity")
+```
+Henda inn 1999 í þetta:
+```{r multivariate_analysis_years}
+library(dplyr)
+library(tidyr)
+library(vegan)
+library(ggplot2)
+
+# First, let's identify which columns are numeric
+numeric_columns <- sapply(species_data, is.numeric)
+
+# Aggregate data across all stations for each year, summing only numeric columns
+aggregated_data <- species_data %>%
+    group_by(Year) %>%
+    summarise(across(where(is.numeric), sum, na.rm = TRUE)) %>%
+    ungroup()
+
+# Separate year and species data
+years <- aggregated_data$Year
+species_matrix <- aggregated_data %>% select(-Year) %>% as.matrix()
+
+# 2. NMDS
+nmds <- metaMDS(species_matrix, distance = "bray")
+
+# Extract site scores
+site_scores <- as.data.frame(scores(nmds, display = "sites"))
+site_scores$Year <- years
+
+# Extract species scores
+species_scores <- as.data.frame(scores(nmds, display = "species"))
+
+# Plot NMDS
+nmds_plot <- ggplot() +
+    geom_point(data = site_scores, aes(x = NMDS1, y = NMDS2, color = Year), size = 4) +
+    geom_text(data = species_scores, aes(x = NMDS1, y = NMDS2, label = rownames(species_scores)), 
+              size = 3, alpha = 0.5) +
+    theme_minimal() +
+    labs(title = "NMDS of Community Composition Over Years")
+
+print(nmds_plot)
+
+# 3. SIMPER (comparing early vs late years)
+early_years <- c("2013", "2014")
+late_years <- c("2016", "2017")
+
+simper_data <- species_matrix[years %in% c(early_years, late_years), ]
+simper_group <- factor(ifelse(years[years %in% c(early_years, late_years)] %in% early_years, "Early", "Late"))
+
+simper_result <- simper(simper_data, group = simper_group, permutations = 999)
+print(summary(simper_result))
+
+# 4. Trajectory Analysis is not applicable
+
+# 5. Species Richness and Diversity Indices
+richness <- specnumber(species_matrix)
+shannon <- diversity(species_matrix, index = "shannon")
+simpson <- diversity(species_matrix, index = "simpson")
+
+diversity_df <- data.frame(
+    Year = years,
+    Richness = richness,
+    Shannon = shannon,
+    Simpson = simpson
+)
+
+# Plot diversity indices
+richness_plot <- ggplot(diversity_df, aes(x = Year, y = Richness, group = 1)) +
+    geom_line() +
+    geom_point() +
+    theme_minimal() +
+    labs(title = "Species Richness Over Time")
+
+shannon_plot <- ggplot(diversity_df, aes(x = Year, y = Shannon, group = 1)) +
+    geom_line() +
+    geom_point() +
+    theme_minimal() +
+    labs(title = "Shannon Diversity Over Time")
+
+print(richness_plot)
+print(shannon_plot)
+
+# 6. Cluster Analysis
+cluster_analysis <- hclust(vegdist(species_matrix, method = "bray"), method = "average")
+plot(cluster_analysis, main = "Cluster Analysis of Years", xlab = "Years", ylab = "Bray-Curtis Dissimilarity")
+
+```
+
+
+
+```{r CCA_B, eval=FALSE, include=FALSE}
+
+# Plot species points
+plot(cca_result, display = "species", type = "n")
+# Add species labels
+text(cca_result, display = "species", cex = 0.8, col = "blue")
+
+# Add environmental variable vectors
+envfit_result <- envfit(cca_result, env_data)
+plot(envfit_result, p.max = 0.1, col = "black") # Adjust p.max value to control the number of plotted vectors
+
+
+```
+
+fig. cap. Figure X: Canonical Correspondence Analysis (CCA) biplot displaying the relationships between species (blue text) and environmental variables (black arrows) in Kolgrafafjörður. Species points represent their position in the ordination space based on their abundance patterns across sampling stations, while the lengths and directions of the environmental variable vectors indicate the strength and direction of their relationships with the species composition. A shorter vector implies a weaker relationship, whereas a longer vector indicates a stronger association with the species distribution. The angles between the vectors represent the correlations between environmental variables, with acute angles indicating positive correlations and obtuse angles indicating negative correlations. Only environmental variables with p-values below 0.1 are displayed in the plot to focus on the most influential factors affecting the species composition.
+
+
+
+```{r eval=FALSE, include=FALSE}
+library(ggplot2)
+library(vegan)
+library(gridExtra)
+
+# Extract vectors and create a data frame
+envfit_vectors_df <- data.frame(
+  VarNames = names(envfit_result$vectors$arrows[, 1]),
+  x = envfit_result$vectors$arrows[, 1],
+  y = envfit_result$vectors$arrows[, 2]
+)
+
+# Now, let's try the complete code chunk again with the corrected envfit_vectors_df:
+
+library(ggplot2)
+library(vegan)
+library(gridExtra)
+
+# Extract site scores from cca object
+site_scores <- scores(cca_result, display = "sites")
+site_scores_df <- as.data.frame(site_scores) # Convert to data frame
+
+# Plot 1: Overall ordination with sample points and labels
+plot1 <- ggplot(site_scores_df) +
+  geom_point(aes(x = CCA1, y = CCA2, color = "Sample"), size = 3) +
+  geom_text(aes(x = CCA1, y = CCA2, label = rownames(site_scores), color = "Sample"), size = 3, nudge_x = 0.1, nudge_y = 0.1) +
+  theme(legend.position = "none") +
+  labs(color = "Data Points")
+
+# Extract species scores from cca object
+species_scores <- scores(cca_result, display = "species")
+species_scores_df <- as.data.frame(species_scores) # Convert to data frame
+
+# Plot 2: Species points with labels and environmental variable vectors
+plot2 <- ggplot(species_scores_df) +
+  geom_text(aes(x = CCA1, y = CCA2, label = rownames(species_scores), color = "Species"), size = 3, nudge_x = 0.1, nudge_y = 0.1) +
+  geom_segment(data = envfit_vectors_df, aes(x = 0, y = 0, xend = x, yend = y, color = "Environmental Variables"), 
+               arrow = arrow(length = unit(0.25, "cm")), size = 1) +
+  theme(legend.position = "bottom") +
+  labs(color = "Legend")
+
+# Arrange the plots side by side
+grid.arrange(plot1, plot2, nrow = 1)
+
+
+
+
+```
+Figure 1. Canonical correspondence analysis (CCA) of environmental variables and species distribution. (A) Ordination plot displaying sample points with distinct colors, labeled by their corresponding site IDs. The axes represent the two main axes (CCA1 and CCA2) of the CCA, which together explain the highest proportion of variation in the species data. (B) Ordination plot illustrating the distribution of species points with labels, and arrows indicating the direction and magnitude of the environmental variables. The length of the arrows corresponds to the strength of the relationship between the environmental variables and the ordination axes. The angle between arrows represents the degree of correlation between environmental variables. Arrows pointing in the same direction show a positive correlation, while arrows pointing in opposite directions indicate a negative correlation. The two plots highlight the relationship between species distribution and environmental gradients, offering insights into the potential drivers of species assemblages in the study area. (Er ekki alveg að kaupa þetta)
+
+
+# NMDS (Kominn hingað)
+Do Non-metric Multidimensional Scaling (NMDS): Visualize community composition in a reduced-dimensionality space and overlay environmental variables to explore potential drivers of community structure.
+
+To perform Non-metric Multidimensional Scaling (NMDS) and visualize community composition in a reduced-dimensionality space with environmental variables overlaid, follow these steps:
+
+```{r NMDS, eval=FALSE, include=FALSE}
+
+
+#Calculate the dissimilarity matrix for species data using the Bray-Curtis distance:
+
+species_dist <- vegdist(species_data, method = "bray")
+
+#Perform NMDS:
+
+nmds_result <- metaMDS(species_dist, k = 2)
+
+#Visualize the NMDS ordination plot:
+
+plot(nmds_result, type = "n", main = "NMDS Ordination")
+text(nmds_result, display = "sites", col = "black")
+
+#Fit environmental variables to the NMDS ordination:
+
+envfit_result <- envfit(nmds_result, env_data)
+
+#Overlay environmental variables on the NMDS plot:
+
+plot(envfit_result, p.max = 0.05) # Only show significant variables at the 0.05 level
+
+#These steps will help you perform NMDS and visualize the community composition in a two-dimensional space. Additionally, the significant environmental variables will be overlaid on the NMDS plot to explore their potential role in driving community structure. The resulting NMDS plot will provide a visual representation of the relationships between species, samples, and environmental variables in your data.
+
+```
+Figure X: Non-metric Multidimensional Scaling (NMDS) ordination plot illustrating the community composition of species in Kolgrafafjörður based on the Bray-Curtis dissimilarity matrix. Sampling stations are represented by black text, with their positions in the ordination space reflecting their relative similarity in species composition. The environmental variables significantly associated (p < 0.05) with the community structure are overlaid on the plot as black arrows, with the length and direction of the arrows indicating the strength and direction of their influence on the species composition. Acute angles between the environmental variable vectors represent positive correlations, while obtuse angles indicate negative correlations. The NMDS plot provides a visual representation of the relationships between species, samples, and environmental variables, aiding in the identification of potential drivers of community structure in the study area.
+
+In an NMDS plot, the axes represent the reduced-dimensionality space that best preserves the original dissimilarities among samples in the high-dimensional species space. The axes themselves do not have a direct ecological interpretation, as they are derived from the ranked dissimilarities between samples. Instead, they serve as a means to visualize complex, multidimensional relationships among samples in a more interpretable two-dimensional space.
+
+The NMDS plot helps to reveal patterns in community composition by positioning samples close to each other if they have similar species compositions and further apart if their compositions are dissimilar. In this way, the NMDS plot allows you to visually assess the relationships among samples and identify potential groupings or gradients in the data.
+
+Overlaying environmental variables on the NMDS plot can help you explore their potential role in driving community structure. Arrows representing environmental variables are fitted to the ordination space, and the direction and length of these arrows provide information about the strength and direction of the relationships between these variables and the ordination axes. The angle between two arrows indicates the correlation between the corresponding environmental variables: a small angle represents a positive correlation, while an angle close to 180 degrees represents a negative correlation. If an environmental variable is significantly related to the community composition, its arrow will point in the direction of the gradient along which the variable changes most. By inspecting the NMDS plot with overlaid environmental variables, you can identify which factors might be important in shaping the observed community patterns.
+
+
+### Feeding Guilds (*Sjá Shiny app*)
+```{r feeding, eval=FALSE, include=FALSE}
+data1_agg <- ddply(jorundur,.(Artal, stod, Flokkun), summarise, N = sum(N))
+
+
+#f <- file.path(list.files(here::here("set"),pattern = "pdf",full.names = T))
+#tafla <- tabulizer::extract_tables(f, pages = 17:48)
+#tabbla <- do.call(rbind,tafla)
+tabbla_df <- as.data.frame(tabbla)
+colnames(tabbla_df) <- c("Major Group", "Family code", "Species code", "Taxon name", "Food Source", 
+                         "Motility", "Habit", "Om/Ca/He", "Food size/type", "FeedMode", 
+                         "Feeding guild")
+table_df <- subset(tabbla_df, !grepl("^Major", `Major Group`))
+
+
+# nákvæm pörun:
+find_exact_match <- function(x, y) {
+  sapply(x, function(Flokkun) {
+    matched <- y[Flokkun == y]
+    if (length(matched) > 0) {
+      return(matched[1])
+    } else {
+      return(NA_character_)
+    }
+  }, simplify = "character")
+}
+
+
+table_df$`Cleaned Taxon name` <- gsub("\\s*(sp\\.|spp\\.|indet\\.)", "", table_df$`Taxon name`)
+
+data1_agg$exact_taxon_name <- find_exact_match(data1_agg$Flokkun, table_df$`Cleaned Taxon name`)
+unmatched_rows <- is.na(data1_agg$exact_taxon_name)
+
+ find_closest_match <- function(x, y) {
+   string_distances <- stringdist::stringdistmatrix(tolower(x), tolower(y), method = "jw")
+   y[apply(string_distances, 1, which.min)]
+ }
+  
+data1_agg$matched_taxon_name[unmatched_rows] <- find_closest_match(data1_agg$Flokkun[unmatched_rows], table_df$`Cleaned Taxon name`)
+data1_agg$final_taxon_name <- ifelse(is.na(data1_agg$exact_taxon_name), data1_agg$matched_taxon_name, data1_agg$exact_taxon_name)
+merged_data <- merge(data1_agg, table_df, by.x = "final_taxon_name", by.y = "Taxon name")
+
+# merged_data er 635 raðir á móti 816 röðum hjá data1_agg. Mikið sem dettur út.
+```
+
+```{r Feeding, eval=FALSE, include=FALSE}
+
+KolgrTaxa <- read_csv("KolgrTaxa.csv", na = "empty") 
+   
+   remove_list <- paste(c(
+     "nýsestir",
+     "ungviði",
+     "ungv",
+     "ungv.",
+     "juv",
+     "harpacticoida"
+   ), collapse = '|') 
+   
+   remove_ind <- lapply(strsplit(remove_list , "\\|")[[1]] , \(x) grep(x , KolgrTaxa$gamalt , fixed = T)) |> 
+     unlist() |> 
+     unique()
+   
+   ekkiungvidi <- KolgrTaxa[-remove_ind,] 
+   
+   # df <- ekkiungvidi %>% 
+   #   mutate(Artal = factor(Artal)) %>% 
+   #   filter(stod %in% c("C4", "A7", "B5", "B8", "E4", "E3")) %>% 
+   #   ddply(.(Artal, stod,Flokkun),summarise, N=sum(Nfm)) %>% 
+   #   arrange(N)
+   
+   lagfaerd_heiti <- ekkiungvidi %>% 
+     filter(!Flokkun %in% c("harpacticoida", "Campanulariidae")) %>% 
+     mutate(
+       Flokkun = case_when(
+         Flokkun == "Spionida" ~ "Spionidae",
+         Flokkun == "Terebellides stroemi" ~ "Terebellides stroemii",
+         Flokkun == "Ampharetinae" ~ "Ampharetidae",
+         Flokkun == "ostracoda" ~ "Ostracoda",
+         Flokkun == "Sabellidae" ~ "Sabellida",
+         Flokkun == "scalibregma inflatum" ~ "Scalibregma inflatum",
+         Flokkun == "sipunculida" ~ "Sipuncula",
+         Flokkun == "sipunculidae" ~ "Sipuncula",
+         Flokkun == "sipunculidea" ~ "Sipuncula",
+         Flokkun == "Flabelligera affinis???"  ~ "Flabelligera affinis" ,
+         Flokkun == "Nepthys" ~ "Nephthys",
+Artal == "1999" & Flokkun == "Ampharete acutifrons" ~ "Ampharetinae",
+Artal == "1999" & Flokkun == "Bivalvia" ~ "NA"        ,
+Artal == "2013" & Flokkun == "Harmothoe" ~ "Harmothoe extenuata"       ,
+Artal == "2013" & Flokkun == "Polynoidae" ~ "Harmothoe extenuata" ,
+Artal == "2014" & Flokkun == "Praxillella" ~ "Praxillella praetermissa",
+Artal == "2014" & Flokkun == "Syllidae" ~ "Syllis cornuta"             ,
+Artal == "2015" & Flokkun == "Syllidae" ~ "Syllis cornuta",
+Artal == "2015" & Flokkun == "Mya" ~ "Mya arenaria"        ,     
+Artal == "2015" & Flokkun == "Mytilidae" ~ "Mytilus edulis",
+#Artal == "2015" & Flokkun == "Ampharetidae" ~ "NA"          ,
+Artal == "2016" & Flokkun == "Aricidea" ~ "Amphitrite cirrata"      ,
+Artal == "2016" & Flokkun == "Capitellidae" ~ "Capitella capitata"   ,  
+Artal == "2016" & Flokkun == "Cirratulidae" ~ "Cirratulus cirratus",
+Artal == "2016" & Flokkun == "Cossuridae" ~ "Cossura longocirrata",
+Artal == "2016" & Flokkun == "Nephtyidae" ~ "Nephthys"      ,
+Artal == "2016" & Flokkun == "Pectinariidae" ~ "Pectinaria koreni"     ,
+Artal == "2016" & Flokkun == "Phyllodocida" ~ "Phyllodoce maculata",
+Artal == "2016" & Flokkun == "Spio" ~ "Spio filicornis"            ,
+Artal == "2016" & Flokkun == "Spionidae" ~ "Spio filicornis",
+Artal == "2016" & Flokkun == "Syllidae" ~ "Syllis"           ,          
+Artal == "2016" & Flokkun == "Cardiidae" ~ "Cardium"           ,        
+Artal == "2017" & Flokkun == "Mya" ~ "Mya arenaria"  ,
+Artal == "2017" & Flokkun == "Maldanidae" ~ "Praxillella praetermissa",
+Artal == "1999" & Flokkun == "Ampharetinae" ~ "Ampharetidae",
+Artal == "2017" & Flokkun == "Ampharete" ~ "Ampharetidae"    ,
+Artal == "2017" & Flokkun == "Ampharete acutifrons" ~ "Ampharetidae",
+Artal == "2016" & Flokkun == "Lumbrineridae" ~ "Lumbrineris",
+Artal == "2015" & Flokkun == "Pholoe" ~ "Pholoe minuta"      ,          
+Artal == "2016" & Flokkun == "Pholoe" ~ "Pholoe minuta"       ,         
+Artal == "2017" & Flokkun == "Pholoe" ~ "Pholoe minuta"        ,    
+Artal == "1999" & Flokkun == "Musculus discors" ~ "Musculus",
+Artal == "2014" & Flokkun == "Mya" ~ "Mya arenaria"          ,   
+Artal == "2014" & Flokkun == "Mytilus edulis" ~ "Mytilidae",
+Artal == "2014" & Flokkun == "Nephtyidae" ~ "Nephthys"       ,
+Artal == "2014" & Flokkun == "Amphipoda" ~ "Protomedeia fasciata"    ,
+Artal == "2014" & Flokkun == "Tubificidae" ~ "Tubificoides kozloffi",
+Artal == "2014" & Flokkun == "Harmothoe" ~ "Harmothoe extenuata"     ,  
+Artal == "2015" & Flokkun == "Harmothoe" ~ "Harmothoe extenuata"      , 
+Artal == "2015" & Flokkun == "Amphipoda" ~ "Protomedeia fasciata",
+Artal == "2016" & Flokkun == "Balanus balanus" ~ "Balanus"       ,
+Artal == "2016" & Flokkun == "priapulidae" ~ "Priapulus caudatus" ,     
+Artal == "2016" & Flokkun == "Priapulidae" ~ "Priapulus caudatus"  ,    
+Artal == "2017" & Flokkun == "Harmothoe" ~ "Harmothoe extenuata"    ,   
+Artal == "1999" & Flokkun == "Leucon acutirostris" ~ "Cumacea"       ,  
+Artal == "1999" & Flokkun == "Eudorella emarginata" ~ "Cumacea",
+       TRUE ~ Flokkun)) %>% 
+     drop_na() 
+
+# bp <- boxplot.stats(lagfaerd_heiti$Nfm)
+# outliers <- bp$out   
+# lagfaerd_heiti <-  lagfaerd_heiti[lagfaerd_heiti$Nfm %in% outliers,]
+   
+   
+# Define a function to find the taxon match based on the exact match and taxonomic hierarchy
+find_taxon_match <- function(x, kolgr_taxa, y) {
+  # Initialize a vector to store the matched taxon names
+  matched_taxon <- rep(NA_character_, length(x))
+
+  # Define the taxonomic hierarchy order
+  taxon_levels <- c("Genus", "Family", "Superfamily", "Order", "Superorder", "Subterclass", "Infraclass", "Subclass", "Class", "Phylum", "Kingdom")
+
+  # Iterate through each element in x (lagfaerd_heiti$Flokkun)
+  for (i in 1:length(x)) {
+    found_match <- FALSE
+    
+    # Try to find an exact match between the current element and the cleaned taxon names
+    taxon_name <- find_exact_match(x[i], y$`Cleaned Taxon name`)
+    if (!is.na(taxon_name)) {
+      matched_taxon[i] <- taxon_name
+      found_match <- TRUE
+    }
+    
+    # If no exact match was found, search for a match in the taxonomic hierarchy
+    if (!found_match) {
+      for (level in taxon_levels) {
+        taxon_name <- find_exact_match(kolgr_taxa[[level]][i], y$`Cleaned Taxon name`)
+        if (!is.na(taxon_name)) {
+          matched_taxon[i] <- taxon_name
+          break
+        }
+      }
+    }
+  }
+
+  # Return the vector of matched taxon names
+  return(matched_taxon)
+}
+
+# Find the taxon match for each element in lagfaerd_heiti$Flokkun
+lagfaerd_heiti$matched_taxon_name <- find_taxon_match(lagfaerd_heiti$Flokkun, lagfaerd_heiti, table_df)
+
+# Identify rows with unmatched taxon names (empty strings)
+unmatched_rows <-  lagfaerd_heiti$matched_taxon_name == ""
+
+# Define a function to find the closest string match between two sets of strings
+find_closest_match <- function(x, y) {
+  string_distances <- stringdist::stringdistmatrix(tolower(x), tolower(y), method = "jw")
+  y[apply(string_distances, 1, which.min)]
+}
+
+# For the unmatched rows, find the closest string match between Flokkun and Cleaned Taxon name
+lagfaerd_heiti$matched_taxon_name[unmatched_rows] <- find_closest_match(lagfaerd_heiti$Flokkun[unmatched_rows], table_df$`Cleaned Taxon name`)
+
+# Merge the data frames based on the matched taxon names
+merged_data_kolgr <- merge(lagfaerd_heiti, table_df, by.x = "matched_taxon_name", by.y = "Cleaned Taxon name")
+
+
+write.csv(merged_data_kolgr,"docs/merged_data_alltB.csv", row.names = F)
+```
+
+```{r Feeding_Guilds, eval=FALSE, include=FALSE}
+merged_data_allt <- read.csv("docs/merged_data_allt.csv")
+merged_data <- subset(merged_data_allt, stod %in% c("C4", "A7", "B5", "B8", "E4", "E3"))
+colnames(merged_data) <- janitor::make_clean_names(colnames(merged_data))
+
+
+data1_agg <- ddply(merged_data,.(artal, stod, feeding_guild),summarise,N=sum(nfm))
+# Prepare data for ordination
+data1_wide <- data1_agg %>% spread(key = feeding_guild, value = N, fill = 0)
+
+#Fix column name for Artal to artal
+colnames(kornast_organic_tap_dypi)[2]<-"artal"
+merged_data <- merge(data1_wide, kornast_organic_tap_dypi, by = c("artal", "stod")) # Hér dettur 1999 út
+rownames(merged_data) <- paste(merged_data$artal, merged_data$stod, sep = "_")
+merged_data <- merged_data[, -c(1,2)] # Remove the 'Year' and 'Station' columns
+
+# Separate environmental and species data
+env_data <- merged_data[, c("20um","63um","125um","250um","1000um","tap","sd","dypi", "Síld 2013")]
+guild_data <- merged_data[, !(names(merged_data) %in% c("20um","63um","125um","250um","1000um","tap","sd","dypi", "Síld 2013"))]
+
+# Perform RDA or CCA
+rda_result <- rda(guild_data ~ `20um` + `63um` + `125um` + `250um` + `1000um` + tap + sd + dypi + `Síld 2013`, data = env_data)
+cca_result <- cca(guild_data ~ `20um` + `63um` + `125um` + `250um` + `1000um` + tap + sd + dypi + `Síld 2013`, data = env_data)
+
+```
+
+
+
+```{r env-group, eval=FALSE, include=FALSE}
+
+library(vegan)
+
+# Define groups of environmental variables
+group1 <- env_data[, c("20um", "63um", "125um", "250um", "1000um")] # Particle sizes
+group2 <- env_data[, c("tap", "sd", "dypi", "Síld 2013")] # Other environmental factors
+
+# Perform variation partitioning
+vp_result <- varpart(guild_data, group1, group2)
+
+# Print the results
+print(vp_result)
+
+
+```
+
+
+The variation partitioning results show the unique and shared contributions of the two sets of environmental variables (group1: particle sizes, and group2: other environmental factors) to the feeding guild composition. The adjusted R-squared values indicate the proportion of variance in guild composition that can be explained by each set of variables or their shared effect.
+
+Here's a summary of the results:
+
+[a]: The unique contribution of particle sizes (group1) is 0.08331, which means that ~8.33% of the variance in guild composition can be explained by particle sizes alone.
+[b]: The unique contribution of other environmental factors (group2) is 0.29846, which means that ~29.85% of the variance in guild composition can be explained by these factors alone.
+[c]: The shared contribution of both sets of variables is 0.13334, which means that ~13.33% of the variance in guild composition can be explained by the combined effect of both sets of variables.
+[d]: The unexplained variance (residuals) is 0.48490, which means that ~48.49% of the variance in guild composition cannot be explained by the environmental variables in your dataset.
+Please note that collinearity was detected in group1 and in the combined set of variables (group1 + group2). This may affect the interpretation of the results, so it is essential to verify the assumptions of the RDA and check for multicollinearity among the variables. You can use the vif.cca() function from the 'vegan' package to compute variance inflation factors (VIF) and identify collinear variables. If necessary, consider removing or combining collinear variables to improve your analysis.
+
+To test the significance of the individual fractions (a, b, and a+b+c), you can use the rda() function from the 'vegan' package, followed by the anova() function to perform a permutation test. Here's an example:
+
+
+```{r capscale, eval=FALSE, include=FALSE}
+
+particle_sizes <- env_data[, c("20um", "63um", "125um", "250um", "1000um")]
+
+# Test the significance of the unique contribution of particle sizes (group1)
+test_a <- vegan::rda(guild_data ~ `20um` + `63um` + `125um` + `250um` + `1000um`, data = env_data)
+anova(test_a, by = "margin", permutations = 999)
+
+# Test the significance of the unique contribution of other environmental factors (group2)
+test_b <- vegan::rda(guild_data ~ tap + sd + dypi + `Síld 2013`, data = env_data)
+anova(test_b, by = "margin", permutations = 999)
+
+# Test the significance of the combined effect of both sets of variables (group1 + group2)
+test_ab <- vegan::rda(guild_data ~ `20um` + `63um` + `125um` + `250um` + `1000um` + tap + sd + dypi + `Síld 2013`, data = env_data)
+anova(test_ab, by = "margin", permutations = 999)
+
+
+
+# Load the vegan package
+#library(vegan)
+
+# Calculate variance inflation factors for each variable
+vif_values <- car::vif(lm(`1000um` ~ `20um` + `63um` + `125um` + `250um`, data = particle_sizes))
+print(vif_values)
+
+# Check if any VIF values are above a threshold of 10
+if (any(vif_values > 10)) {
+  # Identify the index of the variable with the highest VIF
+  index_to_remove <- which.max(vif_values)
+  # Remove the variable with the highest VIF value and recalculate VIF values
+  particle_sizes_vif_filtered <- particle_sizes[, -index_to_remove]
+} else {
+  particle_sizes_vif_filtered <- particle_sizes
+}
+
+# Rerun the analysis with the filtered dataset
+test_a_filtered <- rda(guild_data ~ `20um` + `63um` + `125um` + `250um` + `1000um`, data = env_data)
+anova(test_a_filtered, by = "margin", permutations = 999)
+
+
+# Prepare the combined particle sizes and other environmental data
+combined_data <- cbind(particle_sizes, env_data[, c("tap", "sd", "dypi", "Síld 2013")])
+
+# Perform partial RDA using capscale
+prda_result <- capscale(guild_data ~ . - Condition(`20um` + `63um` + `125um` + `250um` + `1000um`), data = combined_data)
+
+# Run permutation tests for the partial RDA
+anova(prda_result, by = "margin", permutations = 999)
+
+```

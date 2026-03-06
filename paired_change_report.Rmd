@@ -1,0 +1,599 @@
+---
+title: "Long-Interval Paired Vegetation Change Report"
+subtitle: "Dominance transitions and diversity change between first and last survey"
+author: "NNV analysis workflow"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 10,
+  fig.height = 6
+)
+```
+
+## 1. Purpose
+
+This report summarizes **within-plot vegetation change** for revisited permanent plots, using first vs last survey for each plot.
+
+- **Plain-language takeaway:** We are asking: *how much did each plot change, and which dominant taxa gained or lost rank?*
+- **Technical note:** Paired design (`n_years == 2`) with change metrics at plot level: richness, Shannon, Simpson, evenness, dominance tails, Bray-Curtis dissimilarity, and rank-flow Sankey.
+
+## 2. Data and preparation
+
+```{r data-prep}
+library(tidyverse)
+library(lubridate)
+library(vegan)
+
+base_dir <- getwd()
+plants_path <- file.path(base_dir, "plants_export", "v_plants_allt.csv")
+stopifnot(file.exists(plants_path))
+
+v_plants <- readr::read_csv(plants_path, show_col_types = FALSE, locale = readr::locale(encoding = "UTF-8"))
+
+# Restrict analysis to specified heiti include list
+heiti_include <- c(
+  "AL-10-01", "AL-24-03", "AL-40-01", "AL-40-03", "AL-42-04", "AL-43-01",
+  "EY-127-02", "EY-127-04", "FV01-1", "HF-65-01", "HF-65-02", "HF-65-03",
+  "HF-65-05", "HF-65-06", "HF-65-07", "HF-65-08", "HF-65-09", "HF-65-13",
+  "HRM01", "HRM02", "HRM04", "HRM06", "ID-12", "ID-19", "KSM17",
+  "MM-10-01", "MM-110-01", "MS-42-01", "MS-42-02", "MS-65-01", "MS-65-03",
+  "MS-65-04", "NV-40-01", "NV-41-01", "NV-41-06", "NV-41-08", "NV-42-05",
+  "OF-01", "OF-02", "OF-04", "OX-01-2022", "OX-02-2022", "RN-04",
+  "RN-65-01", "RN-65-02", "RN-65-02+", "RN-65-02X", "RN-65-03",
+  "S30-1", "SF-66-01", "SK-EY-02", "SL-41-01", "SL-41-02", "SL-42-05",
+  "SL42-06", "SL43-04", "T02-3", "T05-1", "T05-2", "T05-3", "T05-4",
+  "TH-40-02", "TH-43-01", "TH-MYV-01-2022", "TH-MYV-02-2022", "U16",
+  "V03-2", "V05-4", "V13-2", "VF 40-01", "VF-03", "VF-06", "VF-10-08",
+  "VF-11", "VF-40-02", "VF41-09", "VF59-03", "VF-65-02", "VF-65-03",
+  "VF65-05", "VF65-05AA", "VF-65-06", "AEY-01", "AEY-02", "AEY03",
+  "G03-1", "G03-3", "G15-3", "G20-3", "G20-4", "HEY-01", "HMM07", "HMM08",
+  "HRM07", "KKB39", "KMM35", "KMM68", "KST52", "KVV84", "MS-30-02",
+  "MS-40-01", "MS-40-03", "MS-42-03", "MS-42-04", "MY-78-01", "RN-05-02",
+  "RN-07-02", "RN-07-03", "RN-24-03", "SN-42-05", "SN-59-04", "SN-59-02Y",
+  "SN-59-05X", "V-02-3", "V06-1", "V06-4", "V07-2", "V07-3", "V09-1",
+  "V09-2", "V14-3", "V15-3", "V16-2", "V16-4", "V18-1", "VF 59-04",
+  "VF08", "VF59-01", "E07-1", "E07-3", "G03-2", "G03-5", "G09-1",
+  "HRM09", "HRM10", "HST06", "KBA05", "KKB08", "KMM14", "KSD39", "KVV00",
+  "MY-100-01", "MY-650-03X", "NV-42-01", "OF-03", "RN-01", "RN-02",
+  "RN-03", "RN-04-13", "RN-04-14", "RN-15-03", "RN-23-02", "RN-24-02",
+  "RN-25-04", "RN-25-07", "S21-1", "S22-1", "S27-2", "SL-80-04",
+  "SN-41-04B", "SN-53-02", "T02-2", "TO5-5", "*VF16", "VF20-01", "VF21-10",
+  "VF22-02", "VF30-01", "MY-05-03B", "MY-31-03", "MY-37-01", "MY-69-04",
+  "RN-17-03", "RN-23-04", "RN-28-03", "S21-2", "S21-3", "S25-2", "S26-1",
+  "S27-1", "SK-31-03", "SK-32-04", "SK-58-01", "SN-40-01", "FG2-1",
+  "FA9-1", "FT10-3", "FG2-5", "FD1-8", "L10-1", "L13-5", "V02-1",
+  "V02-2", "V02-4", "V06-2", "V07-1", "V14-1", "V16-3", "VF-12", "VF-04",
+  "VF-05", "VF-41-07", "VF-40-06", "NV-40-02", "NV-40-03", "NV-40-04",
+  "NV-40-05", "NV-40-08"
+) %>% stringr::str_trim()
+
+n_rows_before_heiti <- nrow(v_plants)
+v_plants <- v_plants %>% filter(plot_number %in% heiti_include)
+n_rows_after_heiti <- nrow(v_plants)
+
+# Robust date parsing (handles multiple common formats)
+v_plants2 <- v_plants %>%
+  mutate(
+    field_date_parsed = parse_date_time(
+      field_date,
+      orders = c("Y-m-d", "d-m-Y", "d/m/Y", "Y/m/d", "d.m.Y", "Y.m.d"),
+      quiet = TRUE
+    ),
+    year = year(field_date_parsed)
+  ) %>%
+  filter(!is.na(plot_number), !is.na(taxon_name), !is.na(year))
+
+plot_years <- v_plants2 %>%
+  distinct(plot_number, year) %>%
+  arrange(plot_number, year) %>%
+  group_by(plot_number) %>%
+  summarise(
+    n_years = n(),
+    years = stringr::str_c(year, collapse = ", "),
+    .groups = "drop"
+  )
+
+revisited <- plot_years %>%
+  filter(n_years == 2) %>%
+  tidyr::separate(years, into = c("year_first", "year_last"), sep = ", ", convert = TRUE)
+```
+
+```{r data-coverage}
+coverage <- tibble(
+  metric = c(
+    "Rows in source file",
+    "Rows after heiti_include filter",
+    "Rows retained after year parsing",
+    "Unique plots",
+    "Revisited plots (exactly 2 surveys)",
+    "First year in revisited set",
+    "Last year in revisited set"
+  ),
+  value = c(
+    n_rows_before_heiti,
+    n_rows_after_heiti,
+    nrow(v_plants2),
+    n_distinct(v_plants2$plot_number),
+    nrow(revisited),
+    min(c(revisited$year_first, revisited$year_last), na.rm = TRUE),
+    max(c(revisited$year_first, revisited$year_last), na.rm = TRUE)
+  )
+)
+
+coverage
+```
+
+- **Plain-language takeaway:** The report uses only plots with exactly two surveys, so each change estimate compares the same plot over time.
+- **Technical note:** Two-wave panel filtering reduces ambiguity in temporal interpretation and supports paired contrasts.
+
+## 3. Build cover matrix and paired diversity indices
+
+```{r paired-diversity}
+dat <- v_plants2 %>%
+  filter(plot_number %in% revisited$plot_number) %>%
+  mutate(
+    cover_num = dplyr::coalesce(
+      scale_value_value,
+      dplyr::case_when(
+        scale_value_code %in% c("•", "·", "\u2022") ~ 0.25,
+        scale_value_code == "+" ~ 0.75,
+        scale_value_code == "1" ~ 3,
+        scale_value_code == "2" ~ 15,
+        scale_value_code == "3" ~ 37.5,
+        scale_value_code == "4" ~ 62.5,
+        scale_value_code == "5" ~ 87.5,
+        TRUE ~ NA_real_
+      )
+    )
+  )
+
+pooled_plot_year <- dat %>%
+  filter(!is.na(cover_num), cover_num > 0) %>%
+  group_by(plot_number, year, taxon_name) %>%
+  summarise(cover = mean(cover_num, na.rm = TRUE), .groups = "drop")
+
+wide_plot_year <- pooled_plot_year %>%
+  pivot_wider(names_from = taxon_name, values_from = cover, values_fill = 0)
+
+split_by_plot_year <- wide_plot_year %>%
+  group_by(plot_number, year) %>%
+  group_split()
+
+species_matrices <- split_by_plot_year %>%
+  purrr::map(~ .x %>% select(-plot_number, -year) %>% as.matrix() %>% `[`(1, , drop = FALSE))
+ids <- split_by_plot_year %>% purrr::map(~ .x %>% select(plot_number, year) %>% slice(1))
+
+diversity_plot_year <- tibble(
+  plot_number = purrr::map_chr(ids, ~ .x$plot_number),
+  year        = purrr::map_dbl(ids, ~ .x$year),
+  N           = purrr::map_dbl(species_matrices, ~ sum(.x)),
+  S           = purrr::map_dbl(species_matrices, ~ specnumber(.x)),
+  Shannon     = purrr::map_dbl(species_matrices, ~ diversity(.x, index = "shannon")),
+  Simpson     = purrr::map_dbl(species_matrices, ~ diversity(.x, index = "simpson")),
+  Evenness    = NA_real_
+) %>%
+  mutate(Evenness = Shannon / log(pmax(S, 1)))
+
+paired <- diversity_plot_year %>%
+  inner_join(revisited %>% select(plot_number, year_first, year_last), by = "plot_number") %>%
+  filter(year %in% c(year_first, year_last)) %>%
+  select(plot_number, year, S, Shannon, Simpson, Evenness, year_first, year_last)
+
+first_survey <- paired %>%
+  filter(year == year_first) %>%
+  select(
+    plot_number,
+    S_first = S,
+    Shannon_first = Shannon,
+    Simpson_first = Simpson,
+    Evenness_first = Evenness
+  )
+
+last_survey <- paired %>%
+  filter(year == year_last) %>%
+  select(
+    plot_number,
+    S_last = S,
+    Shannon_last = Shannon,
+    Simpson_last = Simpson,
+    Evenness_last = Evenness
+  )
+
+change <- first_survey %>%
+  full_join(last_survey, by = "plot_number") %>%
+  mutate(
+    delta_S = S_last - S_first,
+    delta_Shannon = Shannon_last - Shannon_first,
+    delta_Simpson = Simpson_last - Simpson_first,
+    delta_Evenness = Evenness_last - Evenness_first
+  )
+```
+
+```{r change-summary}
+change_summary <- change %>%
+  summarise(
+    n_plots = n(),
+    mean_delta_S = mean(delta_S, na.rm = TRUE),
+    median_delta_S = median(delta_S, na.rm = TRUE),
+    mean_delta_Shannon = mean(delta_Shannon, na.rm = TRUE),
+    median_delta_Shannon = median(delta_Shannon, na.rm = TRUE),
+    mean_delta_Simpson = mean(delta_Simpson, na.rm = TRUE),
+    median_delta_Simpson = median(delta_Simpson, na.rm = TRUE),
+    mean_delta_Evenness = mean(delta_Evenness, na.rm = TRUE),
+    median_delta_Evenness = median(delta_Evenness, na.rm = TRUE)
+  )
+
+change_summary
+```
+
+- **Plain-language takeaway:** Negative median values mean many plots lost diversity between first and last survey.
+- **Technical note:** Paired deltas are calculated at plot level; means summarize central tendency, medians are robust to outliers.
+
+## 4. Dominance tails and dominant-taxon transitions
+
+```{r dominance-and-transitions}
+pooled_with_total <- pooled_plot_year %>%
+  group_by(plot_number, year) %>%
+  mutate(
+    total_cover = sum(cover),
+    pct_cover = cover / total_cover,
+    rank_cover = row_number(desc(cover))
+  ) %>%
+  ungroup()
+
+dominance <- pooled_with_total %>%
+  group_by(plot_number, year) %>%
+  summarise(
+    max_pct = max(pct_cover, na.rm = TRUE),
+    n_high = sum(pct_cover >= 0.25, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+revisited_years <- revisited %>% select(plot_number, year_first, year_last)
+
+dom_first <- dominance %>%
+  inner_join(revisited_years, by = "plot_number") %>%
+  filter(year == year_first) %>%
+  select(plot_number, max_pct_first = max_pct, n_high_first = n_high)
+
+dom_last <- dominance %>%
+  inner_join(revisited_years, by = "plot_number") %>%
+  filter(year == year_last) %>%
+  select(plot_number, max_pct_last = max_pct, n_high_last = n_high)
+
+tail_change <- dom_first %>%
+  full_join(dom_last, by = "plot_number") %>%
+  mutate(
+    delta_max_pct = max_pct_last - max_pct_first,
+    delta_n_high = n_high_last - n_high_first
+  )
+
+tail_summary <- tail_change %>%
+  summarise(
+    mean_delta_max_pct = mean(delta_max_pct, na.rm = TRUE),
+    median_delta_max_pct = median(delta_max_pct, na.rm = TRUE),
+    mean_delta_n_high = mean(delta_n_high, na.rm = TRUE),
+    median_delta_n_high = median(delta_n_high, na.rm = TRUE)
+  )
+
+tail_summary
+
+dominant_taxon_per_plot_year <- pooled_with_total %>%
+  filter(rank_cover == 1L) %>%
+  select(plot_number, year, dominant_taxon = taxon_name, max_pct = pct_cover)
+
+dom_taxon_first <- dominant_taxon_per_plot_year %>%
+  inner_join(revisited_years, by = "plot_number") %>%
+  filter(year == year_first) %>%
+  select(plot_number, dominant_first = dominant_taxon, max_pct_first = max_pct)
+
+dom_taxon_last <- dominant_taxon_per_plot_year %>%
+  inner_join(revisited_years, by = "plot_number") %>%
+  filter(year == year_last) %>%
+  select(plot_number, dominant_last = dominant_taxon, max_pct_last = max_pct)
+
+dominant_taxon_change <- dom_taxon_first %>%
+  full_join(dom_taxon_last, by = "plot_number") %>%
+  mutate(
+    same_dominant = (dominant_first == dominant_last),
+    delta_max_pct = max_pct_last - max_pct_first
+  )
+
+dominant_first_freq <- dominant_taxon_change %>%
+  count(dominant_first, name = "n_plots_first") %>%
+  filter(!is.na(dominant_first)) %>%
+  arrange(desc(n_plots_first))
+
+dominant_last_freq <- dominant_taxon_change %>%
+  count(dominant_last, name = "n_plots_last") %>%
+  filter(!is.na(dominant_last)) %>%
+  arrange(desc(n_plots_last))
+```
+
+- **Plain-language takeaway:** This section identifies whether dominance became more concentrated and which taxa most often ended as plot dominants.
+- **Technical note:** Dominance is measured as the max taxon cover proportion per plot-year (`max_pct`) and transition frequency by paired dominant taxon identity.
+
+## 5. Sankey: first-survey species importance to last-survey rank
+
+```{r sankey-title, echo=FALSE, results='asis'}
+cat("### Dominant species transitions: first survey to last-survey rank\n")
+cat("**Subtext:** Left nodes are top first-survey dominant species (ordered by first-survey importance). Right nodes are last-survey ranks (1 = most common dominant). Link width = number of plots.\n\n")
+```
+
+```{r sankey-plot, echo=TRUE}
+if (requireNamespace("networkD3", quietly = TRUE)) {
+  n_sankey <- 10L
+
+  first_importance <- dominant_taxon_change %>%
+    filter(!is.na(dominant_first)) %>%
+    count(dominant_first, name = "n_first") %>%
+    arrange(desc(n_first)) %>%
+    slice_head(n = n_sankey)
+
+  last_importance <- dominant_taxon_change %>%
+    filter(!is.na(dominant_last)) %>%
+    count(dominant_last, name = "n_last") %>%
+    arrange(desc(n_last)) %>%
+    slice_head(n = n_sankey)
+
+  first_species <- first_importance$dominant_first
+  last_species <- last_importance$dominant_last
+  rank_last_vec <- setNames(seq_along(last_species), last_species)
+
+  flow_sankey <- dominant_taxon_change %>%
+    filter(dominant_first %in% first_species, !is.na(dominant_last)) %>%
+    mutate(rank_last = rank_last_vec[dominant_last]) %>%
+    filter(!is.na(rank_last)) %>%
+    count(dominant_first, rank_last, name = "n_plots") %>%
+    filter(n_plots > 0)
+
+  left_nodes <- tibble(name = paste0(seq_along(first_species), ". ", first_species))
+  right_nodes <- tibble(name = paste0("Rank ", seq_len(n_sankey)))
+  nodes_df <- bind_rows(left_nodes, right_nodes)
+
+  links_df <- flow_sankey %>%
+    mutate(
+      source = match(dominant_first, first_species) - 1L,
+      target = n_sankey + as.integer(rank_last) - 1L,
+      value = as.numeric(n_plots)
+    ) %>%
+    select(source, target, value)
+
+  sankey_dominant <- networkD3::sankeyNetwork(
+    Links = links_df,
+    Nodes = nodes_df,
+    Source = "source",
+    Target = "target",
+    Value = "value",
+    NodeID = "name",
+    units = "",
+    fontSize = 14,
+    nodeWidth = 28,
+    sinksRight = TRUE,
+    iterations = 0
+  )
+
+  if (requireNamespace("htmlwidgets", quietly = TRUE)) {
+    sankey_dominant <- htmlwidgets::onRender(
+      sankey_dominant,
+      "
+      function(el, x) {
+        d3.select(el).selectAll('.link title')
+          .text(function(d) {
+            return d.source.name + ' -> ' + d.target.name + '\\n' + d.value + ' plots';
+          });
+        d3.select(el).selectAll('.node title')
+          .text(function(d) {
+            return d.name + '\\n' + d.value + ' plots';
+          });
+      }
+      "
+    )
+  }
+
+  sankey_dominant
+} else {
+  cat("Package `networkD3` not installed; Sankey not shown.")
+}
+```
+
+```{r sankey-support-tables}
+left_totals <- flow_sankey %>%
+  group_by(dominant_first) %>%
+  summarise(n_left = sum(n_plots), .groups = "drop") %>%
+  arrange(desc(n_left))
+
+right_totals <- flow_sankey %>%
+  group_by(rank_last) %>%
+  summarise(n_right = sum(n_plots), .groups = "drop") %>%
+  arrange(rank_last)
+
+left_totals
+right_totals
+```
+
+- **Plain-language takeaway:** This figure tracks where initially dominant species end up in the final dominance ranking.
+- **Technical note:** Right-side rank is defined within top-10 final dominant taxa; flows outside that set are excluded by construction.
+
+## 6. Community composition distance (Bray-Curtis)
+
+```{r bray-curtis}
+all_taxa <- wide_plot_year %>% select(-plot_number, -year) %>% names()
+
+get_vec <- function(plot_num, yr) {
+  r <- wide_plot_year %>% filter(plot_number == plot_num, year == yr)
+  if (nrow(r) == 0) return(setNames(rep(0, length(all_taxa)), all_taxa))
+  v <- r %>% select(-plot_number, -year) %>% as.matrix() %>% `[`(1, )
+  full_vec <- setNames(rep(0, length(all_taxa)), all_taxa)
+  full_vec[names(v)] <- v
+  as.numeric(full_vec[all_taxa])
+}
+
+distances <- revisited %>%
+  mutate(
+    vec_first = purrr::map2(plot_number, year_first, get_vec),
+    vec_last = purrr::map2(plot_number, year_last, get_vec),
+    mat_both = purrr::map2(vec_first, vec_last, ~ rbind(.x, .y)),
+    bc_dist = purrr::map_dbl(mat_both, ~ as.numeric(vegdist(.x, method = "bray")))
+  ) %>%
+  select(plot_number, year_first, year_last, bc_dist)
+
+comp_summary <- distances %>%
+  summarise(
+    n_plots = n(),
+    mean_bc_dist = mean(bc_dist, na.rm = TRUE),
+    median_bc_dist = median(bc_dist, na.rm = TRUE),
+    sd_bc_dist = sd(bc_dist, na.rm = TRUE)
+  )
+
+comp_summary
+```
+
+- **Plain-language takeaway:** Higher Bray-Curtis means bigger species-composition turnover within plots.
+- **Technical note:** Distances are paired first-vs-last vectors per plot, after aligning taxa and filling absent taxa with 0 cover.
+
+## 7. Visual summary panels (existing images retained)
+
+```{r visual-objects}
+change_long <- change %>%
+  select(plot_number, delta_S, delta_Shannon, delta_Simpson, delta_Evenness) %>%
+  pivot_longer(
+    cols = c(delta_S, delta_Shannon, delta_Simpson, delta_Evenness),
+    names_to = "index",
+    values_to = "delta"
+  ) %>%
+  mutate(
+    index = factor(
+      index,
+      levels = c("delta_S", "delta_Shannon", "delta_Simpson", "delta_Evenness"),
+      labels = c("Δ Species richness (S)", "Δ Shannon", "Δ Simpson", "Δ Evenness")
+    )
+  )
+
+p_delta_diversity <- ggplot(change_long, aes(x = delta)) +
+  geom_histogram(bins = 25, fill = "steelblue", alpha = 0.8, colour = "white", linewidth = 0.2) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey40") +
+  facet_wrap(vars(index), scales = "free", ncol = 2) +
+  labs(
+    x = "Within-plot change (last − first)",
+    y = "Number of plots",
+    title = "Distribution of diversity change (n = 167 revisited plots)"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(strip.text = element_text(face = "bold"))
+
+p_first_last_S <- ggplot(change, aes(x = S_first, y = S_last)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey40") +
+  geom_point(alpha = 0.6, size = 2) +
+  labs(
+    x = "Species richness (first survey)",
+    y = "Species richness (last survey)",
+    title = "Paired plots: richness first vs last (1:1 = no change)"
+  ) +
+  theme_minimal()
+
+p_first_last_Shannon <- ggplot(change, aes(x = Shannon_first, y = Shannon_last)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey40") +
+  geom_point(alpha = 0.6, size = 2) +
+  labs(
+    x = "Shannon (first survey)",
+    y = "Shannon (last survey)",
+    title = "Paired plots: Shannon first vs last (1:1 = no change)"
+  ) +
+  theme_minimal()
+
+p_delta_dominance <- ggplot(tail_change, aes(x = delta_max_pct)) +
+  geom_histogram(bins = 25, fill = "darkorange", alpha = 0.8, colour = "white", linewidth = 0.2) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey40") +
+  labs(
+    x = "Change in dominant taxon share (last − first)",
+    y = "Number of plots",
+    title = "Increase/decrease in dominance (max % cover per plot)"
+  ) +
+  theme_minimal()
+
+p_culprits <- dominant_taxon_change %>%
+  filter(delta_max_pct > 0) %>%
+  count(dominant_last, name = "n_plots") %>%
+  slice_max(n_plots, n = 20) %>%
+  mutate(dominant_last = str_trunc(dominant_last, 35)) %>%
+  ggplot(aes(x = fct_reorder(dominant_last, n_plots), y = n_plots)) +
+  geom_col(fill = "darkorange", alpha = 0.85) +
+  geom_text(aes(label = n_plots), hjust = -0.2, size = 3) +
+  coord_flip() +
+  labs(
+    x = NULL,
+    y = "Number of plots",
+    title = "Taxa most often dominant when dominance increased (top 20)"
+  ) +
+  theme_minimal(base_size = 10)
+
+p_bc_dist <- ggplot(distances, aes(x = bc_dist)) +
+  geom_histogram(bins = 25, fill = "forestgreen", alpha = 0.8, colour = "white", linewidth = 0.2) +
+  geom_vline(xintercept = median(distances$bc_dist), linetype = "dashed", colour = "darkgreen", linewidth = 0.8) +
+  labs(
+    x = "Bray-Curtis distance (first vs last)",
+    y = "Number of plots",
+    title = "Compositional change per plot (0 = identical, 1 = no overlap)"
+  ) +
+  theme_minimal()
+```
+
+```{r fig-diversity-panels, fig.cap="Panel A. Distribution of within-plot diversity change (first vs last survey)."}
+p_delta_diversity
+```
+
+```{r fig-first-last-richness, fig.cap="Panel B. Species richness first vs last survey (dashed line indicates no change)."}
+p_first_last_S
+```
+
+```{r fig-first-last-shannon, fig.cap="Panel C. Shannon diversity first vs last survey (dashed line indicates no change)."}
+p_first_last_Shannon
+```
+
+```{r fig-dominance-change, fig.cap="Panel D. Distribution of change in dominant taxon cover share by plot."}
+p_delta_dominance
+```
+
+```{r fig-culprits, fig.cap="Panel E. Taxa most frequently dominant in plots where dominance increased."}
+p_culprits
+```
+
+```{r fig-bray-curtis, fig.cap="Panel F. Bray-Curtis dissimilarity between first and last survey per plot."}
+p_bc_dist
+```
+
+## 8. Key interpretation for biologists
+
+1. **Diversity metrics (S, Shannon, Simpson, Evenness):**  
+   Most median changes are negative when diversity has declined in many paired plots.
+
+2. **Dominance structure:**  
+   Positive `delta_max_pct` indicates stronger concentration of cover in one top taxon.
+
+3. **Taxon turnover in dominance:**  
+   The Sankey highlights how first-survey dominant species transition to different final dominance ranks.
+
+4. **Composition turnover (Bray-Curtis):**  
+   Larger values indicate greater within-plot compositional shift over the revisit interval.
+
+## 9. Reproducibility notes
+
+- Input file: `plants_export/v_plants_allt.csv`
+- Report logic: paired plots only (`n_years == 2`)
+- Cover harmonization:
+  - uses numeric `scale_value_value` if present,
+  - otherwise maps Braun-Blanquet codes to midpoints.
+- All results are regenerated from raw input inside this report.
+

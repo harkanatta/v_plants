@@ -1,0 +1,499 @@
+---
+title: "v_plants variable screening"
+author: "Valtýr"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(lubridate)
+```
+
+```{r source-prep}
+# Shared computational backbone used across reports
+source("v_plants_prep.R")
+```
+
+**Note on drift control.** The objects created by `v_plants_prep.R` are the single source of truth.  
+Chunks below are kept for transparency and diagnostics; where relevant they avoid overwriting backbone objects.
+
+## Purpose
+
+This note documents **which columns in `plants_export/v_plants_allt.csv` are excluded from modelling and ordination**, based on the `var_profile` screen in `analysis_precheck_checklist.R` (missingness, type, and role).
+
+It is meant as an audit trail so future analyses of the vegetation dataset can clearly see which variables were ignored and why.
+
+## Columns excluded without further discussion
+
+These variables are either **effectively unmeasured (~all missing)** or **free-text notes / images** that are not suitable as structured covariates.
+
+```{r excluded_columns_definition}
+# Variables with ~complete missingness or effectively not measured
+vars_exclude_missing <- c(
+  "biomass",
+  "precipitation",
+  "stone_class",
+  "temperature_january",
+  "temperature_july",
+  "temperature_year",
+  "heildarþekja",
+  "subplot_carbon",
+  "subplot_nitrogen",
+  "subplot_ph",
+  "plant_community_other",
+  "plant_community_3_code",
+  "plant_community_3_id",
+  "plant_community_3_name",
+  "slope_aspect",
+  "slope",
+  "autt",
+  "surface_type_code",
+  "surface_type_id",
+  "surface_type_name",
+  "soil_temperature_2",
+  "plant_community_cover"
+)
+
+# Free-text/comment/image fields not used as covariates
+vars_exclude_text <- c(
+  "comments",
+  "subplot_comments",
+  "images",
+  "subplot_images",
+  "project_descrtiption"
+)
+
+vars_exclude_strict <- c(vars_exclude_missing, vars_exclude_text)
+vars_exclude_strict
+```
+
+You can use this vector when preparing analysis-ready tables, for example:
+
+```{r usage_example, eval=FALSE}
+plants_path <- file.path(getwd(), "plants_export", "v_plants_allt.csv")
+v_plants <- readr::read_csv(plants_path, show_col_types = FALSE)
+
+v_plants_use <- v_plants %>%
+  select(-any_of(vars_exclude_strict))
+```
+
+## Reading and filtering `v_plants_allt`
+
+This section mirrors the core loading and cleaning used in `analysis_precheck_checklist.R`, so downstream scripts can source a **single, consistent definition** of the analysis-ready vegetation data.
+
+The `heiti_include` mechanism is a **hard include-list for plots**:
+
+- set `use_heiti_include <- TRUE` to activate it;
+- put the exact plot codes you want to keep into `heiti_include`, e.g.
+
+```r
+heiti_include <- c("KMM68", "KMM70", "KMM72")
+```
+
+Only those `plot_number` values are then retained in `v_plants_use`. When `use_heiti_include` is `FALSE`, all plots in the file are kept.
+
+```{r read_and_filter_v_plants}
+# Diagnostic-only: core data objects are sourced from v_plants_prep.R above.
+tibble(
+  object = c("v_plants_raw", "v_plants2", "v_plants_use"),
+  n_rows = c(nrow(v_plants_raw), nrow(v_plants2), nrow(v_plants_use)),
+  n_cols = c(ncol(v_plants_raw), ncol(v_plants2), ncol(v_plants_use))
+)
+```
+
+## Categorize variables for analysis
+
+This creates a reproducible variable catalog from the filtered dataset (`v_plants_use`) and assigns each variable to an analysis role.
+
+```{r categorize_variables}
+id_vars <- c(
+  "id", "plot_id", "subplot_id", "group_type_subplot_id",
+  "project_id", "project_number", "analyser_id", "tag_id"
+)
+
+time_pairing_vars <- c("field_date", "field_date_parsed", "year", "plot_number")
+
+species_cover_core_vars <- c(
+  "taxon_id", "taxon_name", "scale_value_code", "scale_value_value", "tag_name"
+)
+
+spatial_vars <- c("longitude_1", "latitude_1", "longitude_2", "latitude_2")
+
+design_method_vars <- c(
+  "plot_size_id", "plot_size_width", "plot_size_length",
+  "subplot_size_id", "subplot_size_width", "subplot_size_length",
+  "subplot_group_scale_id", "group_scale_name",
+  "subplot_taxon_scale_id", "taxon_scale_name",
+  "project_name", "analyser_name", "area"
+)
+
+var_catalog <- tibble(variable = names(v_plants_use)) %>%
+  mutate(
+    type = map_chr(variable, ~ class(v_plants_use[[.x]])[1]),
+    prop_missing = map_dbl(variable, ~ mean(is.na(v_plants_use[[.x]]))),
+    n_unique = map_dbl(variable, ~ n_distinct(v_plants_use[[.x]], na.rm = TRUE)),
+    analysis_role = case_when(
+      variable %in% id_vars ~ "identifier",
+      variable %in% time_pairing_vars ~ "time_or_pairing",
+      variable %in% species_cover_core_vars ~ "species_cover_core",
+      variable %in% spatial_vars ~ "spatial",
+      variable %in% design_method_vars ~ "design_or_metadata",
+      type %in% c("numeric", "integer", "double") & prop_missing <= 0.40 ~ "env_numeric_candidate",
+      type %in% c("character", "factor") & n_unique <= 20 & prop_missing <= 0.40 ~ "env_factor_candidate",
+      type %in% c("logical") & prop_missing <= 0.40 ~ "env_factor_candidate",
+      type %in% c("numeric", "integer", "double") & prop_missing > 0.40 ~ "deferred_sparse_numeric",
+      type %in% c("character", "factor", "logical") & prop_missing > 0.40 ~ "deferred_sparse_categorical",
+      TRUE ~ "review_manually"
+    )
+  ) %>%
+  arrange(analysis_role, desc(prop_missing), variable)
+
+var_catalog
+```
+
+```{r variable_groups_for_downstream_use}
+vars_species_cover_core <- var_catalog %>%
+  filter(analysis_role == "species_cover_core") %>%
+  pull(variable)
+
+vars_env_numeric <- var_catalog %>%
+  filter(analysis_role == "env_numeric_candidate") %>%
+  pull(variable)
+
+vars_env_factor <- var_catalog %>%
+  filter(analysis_role == "env_factor_candidate") %>%
+  pull(variable)
+
+vars_design_metadata <- var_catalog %>%
+  filter(analysis_role == "design_or_metadata") %>%
+  pull(variable)
+
+vars_spatial <- var_catalog %>%
+  filter(analysis_role == "spatial") %>%
+  pull(variable)
+
+vars_deferred_sparse <- var_catalog %>%
+  filter(analysis_role %in% c("deferred_sparse_numeric", "deferred_sparse_categorical")) %>%
+  pull(variable)
+
+list(
+  vars_species_cover_core = vars_species_cover_core,
+  vars_env_numeric = vars_env_numeric,
+  vars_env_factor = vars_env_factor,
+  vars_design_metadata = vars_design_metadata,
+  vars_spatial = vars_spatial,
+  vars_deferred_sparse = vars_deferred_sparse
+)
+```
+
+```{r summary_counts_by_role}
+var_catalog %>%
+  count(analysis_role, sort = TRUE)
+```
+
+## Paired-design essentials mirrored from precheck
+
+The following pieces from `analysis_precheck_checklist.R` are required here to keep the analysis design consistent:
+
+- define revisited plots (`n_years >= 2`) and `year_first` / `year_last`;
+- assign `sample` as `first` / `last` from those years;
+- harmonize cover values (`scale_value_value` with Braun-Blanquet fallback);
+- aggregate duplicate taxa entries at `plot_number x sample x taxon_name`;
+- enforce complete pairs (exactly two rows per plot) before matrix analyses.
+
+```{r mirrored_paired_design_steps}
+# Diagnostic-only: report paired-design objects produced by v_plants_prep.R
+diag_counts <- list(
+  n_v_plants2 = nrow(v_plants2),
+  n_plot_years = nrow(plot_years),
+  n_revisited_plots = nrow(revisited),
+  n_rows_paired_long = nrow(paired_long),
+  n_rows_paired_cover = nrow(paired_cover),
+  n_rows_community_long = nrow(community_long),
+  n_rows_complete_pairs = nrow(community_long_paired),
+  n_plots_complete_pairs = dplyr::n_distinct(community_long_paired$plot_number)
+)
+diag_counts
+```
+
+## First analysis steps
+
+Start analysis from `community_long_paired` and proceed in this order.
+
+```{r first_steps_analysis}
+# Diagnostic-only: use community_wide/meta/mat from v_plants_prep.R
+
+# Step 2: basic matrix readiness checks
+has_rows <- nrow(mat) > 0
+two_rows_per_plot <- has_rows && all((meta %>% count(plot_number) %>% pull(n)) == 2)
+
+readiness <- tibble(
+  check = c(
+    "matrix_rows",
+    "matrix_taxa_columns",
+    "all_plots_have_two_rows"
+  ),
+  value = c(
+    nrow(mat),
+    ncol(mat),
+    as.integer(two_rows_per_plot)
+  )
+)
+readiness
+
+# Step 3: first-pass paired composition summaries
+if (has_rows) {
+  bray <- vegan::vegdist(mat, method = "bray")
+  bray_summary <- summary(as.numeric(bray))
+  bray_summary
+} else {
+  message("Skipping Bray-Curtis summary because matrix_rows == 0.")
+}
+
+env_candidates_ps %>%
+  summarise(across(all_of(c(vars_env_numeric, vars_env_factor)), ~ mean(is.na(.x)))) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "prop_missing") %>%
+  arrange(desc(prop_missing))
+```
+
+Interpretation rule for next decision point:
+
+- keep variables in strict driver models if they have acceptable overall missingness and limited first-vs-last missingness shift;
+- move sparse or strongly shifted variables to exploratory-only models.
+
+```{r driver_variable_eligibility}
+# Thresholds for strict driver set (edit as needed)
+max_missing_strict <- 0.35
+max_shift_pp_strict <- 10
+
+candidate_vars <- intersect(c(vars_env_numeric, vars_env_factor), names(env_candidates_ps))
+
+driver_eligibility <- purrr::map_dfr(candidate_vars, function(v) {
+  x <- env_candidates_ps %>%
+    mutate(is_miss = is.na(.data[[v]])) %>%
+    group_by(sample) %>%
+    summarise(prop_miss = mean(is_miss), .groups = "drop") %>%
+    tidyr::pivot_wider(names_from = sample, values_from = prop_miss, values_fill = 0)
+
+  miss_first <- x$first %||% NA_real_
+  miss_last <- x$last %||% NA_real_
+  delta_pp <- 100 * (miss_last - miss_first)
+  prop_missing <- mean(is.na(env_candidates_ps[[v]]))
+
+  tibble(
+    variable = v,
+    prop_missing = prop_missing,
+    miss_first = miss_first,
+    miss_last = miss_last,
+    delta_pp = delta_pp,
+    strict_ok = prop_missing <= max_missing_strict && abs(delta_pp) <= max_shift_pp_strict,
+    exploratory_ok = prop_missing <= 0.60
+  )
+}) %>%
+  mutate(
+    use_class = case_when(
+      strict_ok ~ "strict",
+      exploratory_ok ~ "exploratory_only",
+      TRUE ~ "exclude"
+    )
+  ) %>%
+  arrange(use_class, desc(prop_missing), desc(abs(delta_pp)), variable)
+
+driver_eligibility
+
+vars_driver_strict <- driver_eligibility %>%
+  filter(use_class == "strict") %>%
+  pull(variable)
+
+vars_driver_exploratory <- driver_eligibility %>%
+  filter(use_class == "exploratory_only") %>%
+  pull(variable)
+
+vars_driver_exclude <- driver_eligibility %>%
+  filter(use_class == "exclude") %>%
+  pull(variable)
+
+list(
+  vars_driver_strict = vars_driver_strict,
+  vars_driver_exploratory = vars_driver_exploratory,
+  vars_driver_exclude = vars_driver_exclude
+)
+```
+
+```{r strict_driver_set_curated}
+# Curated strict driver set:
+# - remove index-like fields (e.g., subplot_number)
+# - prefer name-coded factors over duplicate *_id fields for interpretability
+vars_driver_strict_proposed <- c(
+  "háplöntuþekja",
+  "soil_depth",
+  "total_cover",
+  "vegetation_height_1",
+  "soil_type_name",
+  "moisture_name",
+  "topography_name",
+  "permafrost"
+)
+
+# Keep only variables that exist in the current filtered data
+vars_driver_strict_proposed <- intersect(vars_driver_strict_proposed, names(env_candidates_ps))
+
+# Diagnostic-only object (avoid overwriting prep backbone objects)
+env_strict_diag <- env_candidates_ps %>%
+  select(plot_number, sample, all_of(vars_driver_strict_proposed)) %>%
+  distinct()
+
+# Diagnostics: level counts for categorical vars, SD for numeric vars
+factor_checks <- env_strict_diag %>%
+  summarise(across(
+    where(~ is.character(.x) || is.factor(.x) || is.logical(.x)),
+    ~ n_distinct(.x, na.rm = TRUE)
+  )) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "n_levels")
+
+numeric_checks <- env_strict_diag %>%
+  summarise(across(where(is.numeric), ~ sd(.x, na.rm = TRUE))) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "sd")
+
+list(
+  vars_driver_strict_final_from_prep = vars_driver_strict_final,
+  vars_driver_strict_proposed = vars_driver_strict_proposed,
+  factor_checks = factor_checks,
+  numeric_checks = numeric_checks
+)
+```
+
+```{r strict_complete_case_paired_readiness}
+# Diagnostic-only: readiness for strict objects from v_plants_prep.R
+strict_readiness <- tibble(
+  n_plots = n_distinct(meta_strict$plot_number),
+  n_rows = nrow(meta_strict),
+  n_taxa = ncol(mat_strict),
+  paired_ok = all((meta_strict %>% count(plot_number) %>% pull(n)) == 2)
+)
+
+strict_readiness
+```
+
+```{r strict_permanova_and_dispersion}
+# Strict paired PERMANOVA baseline
+perm_strict <- vegan::adonis2(
+  mat_strict ~ sample,
+  data = meta_strict,
+  method = "bray",
+  permutations = 999,
+  strata = meta_strict$plot_number
+)
+
+# Dispersion check
+bd_strict <- vegan::betadisper(
+  vegan::vegdist(mat_strict, method = "bray"),
+  group = meta_strict$sample
+)
+bd_test_strict <- vegan::permutest(bd_strict, permutations = 999)
+
+perm_strict
+bd_test_strict
+```
+
+```{r strict_envfit_screening}
+# Driver screening with envfit on strict set (diagnostic table only).
+# Uses nmds_strict and fit_strict objects created in v_plants_prep.R.
+
+# Numeric vectors
+fit_tbl_numeric <- tibble(
+  variable = names(fit_strict$vectors$r),
+  r2 = as.numeric(fit_strict$vectors$r),
+  p_value = as.numeric(fit_strict$vectors$pvals)
+) %>%
+  arrange(p_value)
+
+# Factor centroids (if present)
+if (!is.null(fit_strict$factors) && length(fit_strict$factors$pvals) > 0) {
+  fit_tbl_factor <- tibble(
+    variable = names(fit_strict$factors$pvals),
+    r2 = as.numeric(fit_strict$factors$r),
+    p_value = as.numeric(fit_strict$factors$pvals)
+  ) %>%
+    arrange(p_value)
+} else {
+  fit_tbl_factor <- tibble(variable = character(), r2 = numeric(), p_value = numeric())
+}
+
+fit_tbl <- bind_rows(
+  fit_tbl_numeric %>% mutate(kind = "numeric"),
+  fit_tbl_factor %>% mutate(kind = "factor")
+) %>%
+  arrange(p_value)
+
+fit_tbl
+```
+
+```{r strict_driver_model_paired_permanova}
+# Next step: paired multivariable model
+# Goal: test which strict drivers remain associated with composition
+# after controlling for first/last sample and other retained drivers.
+
+# 1) Start from envfit-supported candidates (p <= 0.05)
+driver_candidates <- fit_tbl %>%
+  filter(p_value <= 0.05, variable %in% vars_driver_strict_final) %>%
+  pull(variable)
+
+# 2) Basic collinearity pruning for numeric variables
+num_candidates <- driver_candidates[driver_candidates %in% names(meta_strict)[sapply(meta_strict, is.numeric)]]
+fac_candidates <- setdiff(driver_candidates, num_candidates)
+
+if (length(num_candidates) >= 2) {
+  cor_mat <- meta_strict %>%
+    select(all_of(num_candidates)) %>%
+    cor(use = "pairwise.complete.obs")
+
+  high_pairs <- which(abs(cor_mat) > 0.80 & abs(cor_mat) < 1, arr.ind = TRUE)
+  drop_numeric <- character(0)
+
+  if (nrow(high_pairs) > 0) {
+    # Drop the second variable in each high-correlation pair (simple deterministic rule)
+    drop_numeric <- unique(colnames(cor_mat)[high_pairs[, "col"]])
+  }
+} else {
+  cor_mat <- matrix(numeric(), nrow = 0, ncol = 0)
+  drop_numeric <- character(0)
+}
+
+driver_final_diag <- c(setdiff(num_candidates, drop_numeric), fac_candidates)
+
+# 3) Build paired PERMANOVA formula with sample + drivers
+driver_formula <- as.formula(
+  paste("mat_strict ~ sample +", paste(driver_final_diag, collapse = " + "))
+)
+
+perm_drivers_terms <- vegan::adonis2(
+  formula = driver_formula,
+  data = meta_strict,
+  method = "bray",
+  permutations = 999,
+  strata = meta_strict$plot_number,
+  by = "terms"
+)
+
+perm_drivers_margin <- vegan::adonis2(
+  formula = driver_formula,
+  data = meta_strict,
+  method = "bray",
+  permutations = 999,
+  strata = meta_strict$plot_number,
+  by = "margin"
+)
+
+list(
+  driver_candidates = driver_candidates,
+  dropped_numeric_due_to_high_correlation = drop_numeric,
+  driver_final_diag = driver_final_diag,
+  cor_mat_numeric = cor_mat,
+  perm_drivers_terms = perm_drivers_terms,
+  perm_drivers_margin = perm_drivers_margin
+)
+```
+
+

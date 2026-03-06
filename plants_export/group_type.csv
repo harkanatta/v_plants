@@ -1,0 +1,21 @@
+id,name,comments,insert_user,insert_time,update_user,update_time
+2,Háplöntuþekja,Þekja allra háplantna í smáreit. ,kjartan,2013-05-29T10:26:08Z,asrun,2013-10-04T11:56:29Z
+3,Mosaþekja,Þekja allra mosa í smáreit. ,kjartan,2013-05-29T10:26:08Z,asrun,2013-10-04T11:57:09Z
+4,Fléttuþekja,Þekja allra fléttna í smáreit. ,kjartan,2013-05-29T10:26:08Z,asrun,2013-10-04T11:57:19Z
+16,Grýtniþekja,Þekja steina sem eru stærri en 6x6 cm (>1%).,asrun,2013-10-04T11:58:19Z,NA,NA
+10,Mosa- og fléttuskán,E: Cryptogamic crust. Mosa- og fléttuskán metin saman til þekju.,kjartan,2013-05-29T10:26:08Z,asrun,2013-10-09T15:14:29Z
+11,Kræðufléttur,"E. Cetraria sp. 
+Kræðufléttur metnar saman til þekju. ",kjartan,2013-05-29T10:26:08Z,asrun,2013-10-09T15:15:49Z
+13,Svarðmosi,E: Sphagnum sp. Svarðmosi (barnamosi) metinn saman til þekju.,kjartan,2013-05-29T10:26:08Z,asrun,2013-10-09T15:20:19Z
+8,Engjaskófir,E. Peltigera sp. Engjaskófir metnar saman til þekju.,kjartan,2013-05-29T10:26:08Z,asrun,2014-01-14T14:49:45Z
+9,Breiskjufléttur,E. Stereocaulon sp. Breiskjufléttur metnar saman til þekju.,kjartan,2013-05-29T10:26:08Z,asrun,2014-01-14T14:50:05Z
+21,Racomitrium ericoides,Tegund sett hér inn vegna vistgerðagagna á  miðhálendi.,asrun,2015-03-05T16:08:50Z,NA,NA
+20,Racomitrium canescens,Tegund sett hér inn vegna vistgerðagagna á  miðhálendi.,asrun,2015-03-05T16:07:40Z,asrun,2015-03-05T16:09:00Z
+22,Racomitrium lanuginosum,Tegund sett hér inn vegna vistgerðagagna á  miðhálendi.,asrun,2015-03-05T16:09:20Z,NA,NA
+23,Cladonia arbuscula,Tegund sett hér inn vegna vistgerðagagna á  miðhálendi.,asrun,2015-03-05T16:09:40Z,NA,NA
+24,Autt,NA,kjartan,2015-03-10T16:54:12Z,NA,NA
+19,Barrþekja,Þekja barrsinu. ,asrun,2014-01-24T11:40:29Z,asrun,2016-05-11T15:59:49Z
+17,Sinuþekja,Laufsina. ,asrun,2014-01-24T11:37:09Z,asrun,2016-05-11T16:00:29Z
+18,Greinaþekja,Þekja dauðra greina á jörðu.,asrun,2014-01-24T11:39:59Z,asrun,2016-05-11T16:01:19Z
+26,Heildarþekja,Heildarþekja gróðurs metin upp á %,olgakolbrun,2020-11-16T16:02:29Z,NA,NA
+27,Hélumosi,Tegund sett hér inn vegna umræðu í faghópi Vöktunar náttúruverndarsvæða.,olgakolbrun,2024-09-11T15:12:15Z,NA,NA

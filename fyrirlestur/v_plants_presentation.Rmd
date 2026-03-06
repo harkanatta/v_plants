@@ -1,0 +1,612 @@
+---
+title: "Icelandic Vegetation is Changing"
+subtitle: "Evidence from 167 revisited plots"
+author: "Valtýr"
+date: "`r format(Sys.Date(), '%B %Y')`"
+output:
+  ioslides_presentation:
+    widescreen: true
+    smaller: true
+    css: presentation_style.css
+    fig_width: 9
+    fig_height: 5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center",
+  cache   = FALSE,
+  cache.path = "cache/pres_"
+)
+```
+
+```{r load-and-prep, cache=TRUE}
+# ── dependencies ────────────────────────────────────────────────────────────
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(lubridate)
+  library(vegan)
+  library(ggrepel)
+  library(indicspecies)
+  library(knitr)
+  library(kableExtra)
+})
+set.seed(123)
+
+# ── shared prep (loads all community objects, mat_strict, nmds_strict etc.) ─
+prep_candidates <- c("v_plants_prep.R", "../v_plants_prep.R")
+prep_script <- prep_candidates[file.exists(prep_candidates)][1]
+if (is.na(prep_script)) {
+  stop("Could not locate v_plants_prep.R (tried: v_plants_prep.R, ../v_plants_prep.R)")
+}
+source(prep_script, local = TRUE)
+
+# ── survey-gap summary from plot_years ──────────────────────────────────────
+plot_years_gap <- plot_years %>%
+  mutate(gap_years = year_last - year_first) %>%
+  filter(n_years >= 2)
+
+# ── paired diversity (from paired_change_report logic) ──────────────────────
+heiti_include_vec <- stringr::str_trim(
+  v_plants2 %>% distinct(plot_number) %>% pull(plot_number)
+)
+
+revisited_2 <- plot_years %>%
+  filter(n_years >= 2) %>%
+  mutate(gap_years = year_last - year_first)
+
+dat <- v_plants2 %>%
+  filter(plot_number %in% revisited_2$plot_number) %>%
+  mutate(
+    cover_num = coalesce(
+      scale_value_value,
+      case_when(
+        scale_value_code %in% c("\u2022", "\u00b7", "+") &
+          scale_value_code == "+" ~ 0.75,
+        scale_value_code %in% c("\u2022", "\u00b7") ~ 0.25,
+        scale_value_code == "1" ~ 3,
+        scale_value_code == "2" ~ 15,
+        scale_value_code == "3" ~ 37.5,
+        scale_value_code == "4" ~ 62.5,
+        scale_value_code == "5" ~ 87.5,
+        TRUE ~ NA_real_
+      )
+    )
+  )
+
+pooled_plot_year <- dat %>%
+  filter(!is.na(cover_num), cover_num > 0) %>%
+  group_by(plot_number, year, taxon_name) %>%
+  summarise(cover = mean(cover_num, na.rm = TRUE), .groups = "drop")
+
+wide_plot_year <- pooled_plot_year %>%
+  pivot_wider(names_from = taxon_name, values_from = cover, values_fill = 0)
+
+# diversity per plot × year
+split_by_py <- wide_plot_year %>%
+  group_by(plot_number, year) %>% group_split()
+ids_py <- map(split_by_py, ~ .x %>% select(plot_number, year) %>% slice(1))
+mats_py <- map(split_by_py, ~ .x %>%
+                 select(-plot_number, -year) %>% as.matrix() %>% `[`(1, , drop = FALSE))
+
+diversity_py <- tibble(
+  plot_number = map_chr(ids_py, ~ .x$plot_number),
+  year        = map_dbl(ids_py, ~ .x$year),
+  S           = map_dbl(mats_py, ~ specnumber(.x)),
+  Shannon     = map_dbl(mats_py, ~ diversity(.x, index = "shannon")),
+  Simpson     = map_dbl(mats_py, ~ diversity(.x, index = "simpson"))
+) %>%
+  mutate(Evenness = Shannon / log(pmax(S, 1)))
+
+revisited_yrs <- revisited_2 %>% select(plot_number, year_first, year_last)
+
+paired_div <- diversity_py %>%
+  inner_join(revisited_yrs, by = "plot_number") %>%
+  filter(year %in% c(year_first, year_last))
+
+first_div <- paired_div %>% filter(year == year_first) %>%
+  select(plot_number, S_first = S, Shannon_first = Shannon,
+         Simpson_first = Simpson, Evenness_first = Evenness)
+
+last_div <- paired_div %>% filter(year == year_last) %>%
+  select(plot_number, S_last = S, Shannon_last = Shannon,
+         Simpson_last = Simpson, Evenness_last = Evenness)
+
+change <- first_div %>%
+  full_join(last_div, by = "plot_number") %>%
+  mutate(
+    delta_S        = S_last        - S_first,
+    delta_Shannon  = Shannon_last  - Shannon_first,
+    delta_Simpson  = Simpson_last  - Simpson_first,
+    delta_Evenness = Evenness_last - Evenness_first
+  )
+
+# ── top species first vs last ────────────────────────────────────────────────
+top_species <- pooled_plot_year %>%
+  inner_join(revisited_yrs, by = "plot_number") %>%
+  filter(year %in% c(year_first, year_last)) %>%
+  mutate(survey = if_else(year == year_first, "First survey", "Last survey")) %>%
+  group_by(survey, taxon_name) %>%
+  summarise(mean_cover = mean(cover, na.rm = TRUE),
+            n_plots    = n_distinct(plot_number), .groups = "drop") %>%
+  group_by(survey) %>%
+  slice_max(order_by = mean_cover, n = 12) %>%
+  ungroup()
+
+# ── per-plot cover totals ────────────────────────────────────────────────────
+cover_totals <- pooled_plot_year %>%
+  inner_join(revisited_yrs, by = "plot_number") %>%
+  filter(year %in% c(year_first, year_last)) %>%
+  mutate(survey = if_else(year == year_first, "First survey", "Last survey")) %>%
+  group_by(plot_number, survey) %>%
+  summarise(total_cover = sum(cover, na.rm = TRUE), .groups = "drop")
+
+cover_wide <- cover_totals %>%
+  pivot_wider(names_from = survey, values_from = total_cover)
+
+# ── Bray-Curtis per plot ─────────────────────────────────────────────────────
+all_taxa <- wide_plot_year %>% select(-plot_number, -year) %>% names()
+
+get_vec <- function(pn, yr) {
+  r <- wide_plot_year %>% filter(plot_number == pn, year == yr)
+  if (nrow(r) == 0) return(setNames(rep(0, length(all_taxa)), all_taxa))
+  v <- r %>% select(-plot_number, -year) %>% as.matrix() %>% `[`(1, )
+  fv <- setNames(rep(0, length(all_taxa)), all_taxa)
+  fv[names(v)] <- v
+  as.numeric(fv[all_taxa])
+}
+
+distances <- revisited_2 %>%
+  mutate(
+    vec_first = map2(plot_number, year_first, get_vec),
+    vec_last  = map2(plot_number, year_last,  get_vec),
+    bc_dist   = map2_dbl(vec_first, vec_last,
+                         ~ as.numeric(vegdist(rbind(.x, .y), method = "bray")))
+  ) %>%
+  select(plot_number, year_first, year_last, gap_years, bc_dist)
+
+# ── IndVal (core dataset, outliers removed) ──────────────────────────────────
+outlier_plots <- c("RN-02", "RN-03", "RN-65-01")
+keep_rows  <- !meta_strict$plot_number %in% outlier_plots
+meta_core  <- meta_strict[keep_rows, ]
+mat_core   <- mat_strict[keep_rows, ]
+mat_core   <- mat_core[, colSums(mat_core) > 0]
+
+group_vec <- ifelse(meta_strict$sample == "first", 1L, 2L)
+indval_result <- multipatt(mat_strict, cluster = group_vec,
+                            control = how(nperm = 999),
+                            func = "IndVal.g", duleg = TRUE)
+
+indval_tbl <- indval_result$sign %>%
+  rownames_to_column("taxon") %>% as_tibble() %>%
+  rename(group = index) %>%
+  mutate(survey = if_else(group == 1L, "First survey", "Last survey"),
+         p_adj  = p.adjust(p.value, method = "BH")) %>%
+  filter(p_adj <= 0.05) %>%
+  arrange(p_adj)
+
+# ── NMDS core ────────────────────────────────────────────────────────────────
+nmds_core <- metaMDS(mat_core, distance = "bray", k = 2,
+                     trymax = 200, trace = FALSE)
+
+env_core <- meta_core %>%
+  select(all_of(vars_driver_strict_final)) %>%
+  mutate(across(where(is.character), as.factor),
+         across(where(is.logical),   as.factor))
+
+fit_core <- envfit(nmds_core, env_core, permutations = 999)
+
+arrow_df_core <- as.data.frame(fit_core$vectors$arrows) %>%
+  rownames_to_column("variable") %>%
+  rename(ax1 = NMDS1, ax2 = NMDS2) %>%
+  mutate(r2      = fit_core$vectors$r,
+         p_value = fit_core$vectors$pvals) %>%
+  filter(p_value <= 0.05)
+
+site_scores <- as.data.frame(scores(nmds_core, display = "sites")) %>%
+  bind_cols(meta_core %>% select(plot_number, sample))
+
+ordi_r <- max(abs(c(site_scores$NMDS1, site_scores$NMDS2))) * 0.70
+arrow_df_core <- arrow_df_core %>%
+  mutate(xend = ax1 * ordi_r, yend = ax2 * ordi_r)
+
+# ── helper colours ───────────────────────────────────────────────────────────
+col_first <- "#2980b9"
+col_last  <- "#e67e22"
+```
+
+## What this study is about
+
+> We revisited **`r n_distinct(revisited_2$plot_number)` permanent vegetation plots** across Iceland  
+> — some after just a few years, others after more than two decades —  
+> and asked a simple question:
+
+<br>
+
+### **Has the plant life changed?**
+
+The short answer is: **yes, and in ways that are consistent enough to measure.**
+
+## The dataset at a glance {.smaller}
+
+```{r dataset-table}
+tibble(
+  ` ` = c(
+    "Plots revisited",
+    "Total species records",
+    "Unique plant taxa",
+    "Shortest gap between surveys",
+    "Longest gap between surveys",
+    "Median gap"
+  ),
+  `  ` = c(
+    n_distinct(revisited_2$plot_number),
+    nrow(pooled_plot_year %>% filter(plot_number %in% revisited_2$plot_number)),
+    n_distinct(pooled_plot_year$taxon_name),
+    paste(min(plot_years_gap$gap_years, na.rm = TRUE), "years"),
+    paste(max(plot_years_gap$gap_years, na.rm = TRUE), "years"),
+    paste(median(plot_years_gap$gap_years, na.rm = TRUE), "years")
+  )
+) %>%
+  kable(align = c("l", "r")) %>%
+  kable_styling(font_size = 14, full_width = FALSE,
+                bootstrap_options = c("striped", "hover"))
+```
+
+Each plot is compared to **itself** — first survey vs. last survey.  
+This removes the noise of plots being in different places or climates.
+
+## Finding 1 — Species richness has shifted
+
+Most plots did not stay the same.
+
+```{r richness-scatter, fig.height=4.5, cache=FALSE}
+plot_richness_scatter <- change %>%
+  mutate(direction = if_else(S_last > S_first, "Increase", "Decrease or equal")) %>%
+  ggplot(aes(x = S_first, y = S_last)) +
+  geom_abline(slope = 1, intercept = 0,
+              linetype = "dashed", colour = "grey55", linewidth = 0.8) +
+  geom_point(aes(colour = direction), alpha = 0.55, size = 2.4) +
+  scale_colour_manual(values = c("Increase" = col_last, "Decrease or equal" = col_first), guide = "none") +
+  annotate("text", x = Inf, y = -Inf,
+           hjust = 1.1, vjust = -0.8, size = 4, colour = "grey40",
+           label = "Dashed line = no change") +
+  labs(x = "Number of species — first survey",
+       y = "Number of species — last survey") +
+  theme_minimal(base_size = 14) +
+  theme(panel.grid.minor = element_blank())
+
+print(plot_richness_scatter)
+```
+
+Points **above** the line = more species now.  Points **below** = fewer.
+
+## Finding 1 — How much did richness change?
+
+```{r richness-hist, fig.height=4.2}
+pct_gained <- round(100 * mean(change$delta_S > 0, na.rm = TRUE))
+pct_lost   <- round(100 * mean(change$delta_S < 0, na.rm = TRUE))
+med_ch     <- round(median(change$delta_S, na.rm = TRUE), 1)
+
+ggplot(change, aes(x = delta_S,
+                   fill = after_stat(x > 0))) +
+  geom_histogram(bins = 28, colour = "white", linewidth = 0.2) +
+  geom_vline(xintercept = 0, linetype = "dashed",
+             colour = "grey40", linewidth = 0.9) +
+  scale_fill_manual(values = c("FALSE" = col_first, "TRUE" = col_last),
+                    labels = c("Fewer species", "More species"),
+                    name = NULL) +
+  labs(x = "Change in number of species (last − first)",
+       y = "Number of plots") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "bottom",
+        panel.grid.minor = element_blank())
+```
+
+**`r pct_gained`%** of plots gained species &nbsp;·&nbsp; **`r pct_lost`%** lost species &nbsp;·&nbsp; median change: **`r med_ch`**
+
+## Finding 2 — Diversity (not just count) also changed
+
+Species richness only counts how many species are present.  
+**Shannon diversity** also weighs how evenly they share the space.
+
+```{r shannon-panel, fig.height=4.2}
+sh_med <- round(median(change$delta_Shannon, na.rm = TRUE), 3)
+ev_med <- round(median(change$delta_Evenness, na.rm = TRUE), 3)
+
+change_long <- change %>%
+  select(plot_number, delta_Shannon, delta_Evenness) %>%
+  pivot_longer(-plot_number, names_to = "index", values_to = "delta") %>%
+  mutate(index = recode(index,
+    delta_Shannon  = "Shannon diversity",
+    delta_Evenness = "Evenness (how balanced\nthe community is)"
+  ))
+
+ggplot(change_long, aes(x = delta, fill = after_stat(x > 0))) +
+  geom_histogram(bins = 25, colour = "white", linewidth = 0.2) +
+  geom_vline(xintercept = 0, linetype = "dashed",
+             colour = "grey40", linewidth = 0.9) +
+  facet_wrap(~index, scales = "free_x") +
+  scale_fill_manual(values = c("FALSE" = col_first, "TRUE" = col_last),
+                    guide = "none") +
+  labs(x = "Change (last − first)", y = "Number of plots") +
+  theme_minimal(base_size = 13) +
+  theme(strip.text = element_text(face = "bold"),
+        panel.grid.minor = element_blank())
+```
+
+Median Shannon change: **`r sh_med`** &nbsp;·&nbsp; Median evenness change: **`r ev_med`**
+
+## Finding 3 — Total plant cover changed too
+
+Not just which species are there — but how much vegetation there is overall.
+
+```{r cover-scatter, fig.height=4.5}
+ggplot(cover_wide,
+       aes(x = `First survey`, y = `Last survey`)) +
+  geom_abline(slope = 1, intercept = 0,
+              linetype = "dashed", colour = "grey55", linewidth = 0.8) +
+  geom_point(alpha = 0.5, size = 2.4,
+             colour = if_else(cover_wide$`Last survey` > cover_wide$`First survey`,
+                              col_last, col_first)) +
+  labs(x = "Total cover — first survey (%)",
+       y = "Total cover — last survey (%)") +
+  theme_minimal(base_size = 14) +
+  theme(panel.grid.minor = element_blank())
+```
+
+Points above the line = more plant cover now.
+
+## Finding 4 — The dominant species are different now
+
+The plants that **dominated** a plot in the first survey are often **not the same ones** dominating in the last.
+
+```{r top-species-plot, fig.height=5}
+ggplot(top_species,
+       aes(x = mean_cover,
+           y = reorder(taxon_name, mean_cover),
+           fill = survey)) +
+  geom_col(alpha = 0.85, width = 0.7) +
+  facet_wrap(~survey, scales = "free_y") +
+  scale_fill_manual(values = c("First survey" = col_first,
+                               "Last survey"  = col_last)) +
+  labs(x = "Mean cover across plots (%)",
+       y = NULL,
+       title = "Top 12 species by mean cover",
+       fill = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none",
+        strip.text      = element_text(face = "bold", size = 13),
+        panel.grid.minor = element_blank())
+```
+
+## Finding 5 — The composition of whole communities shifted
+
+Bray-Curtis dissimilarity measures how different a plot's species list is between surveys.  
+**0 = identical. 1 = nothing in common.**
+
+```{r bc-hist, fig.height=4}
+med_bc <- round(median(distances$bc_dist, na.rm = TRUE), 2)
+
+ggplot(distances, aes(x = bc_dist)) +
+  geom_histogram(bins = 28, fill = "#27ae60",
+                 colour = "white", linewidth = 0.2, alpha = 0.85) +
+  geom_vline(xintercept = med_bc, colour = "#1a6e3e",
+             linetype = "dashed", linewidth = 1) +
+  annotate("text", x = med_bc + 0.03, y = Inf, vjust = 1.5, hjust = 0,
+           label = paste0("Median = ", med_bc), colour = "#1a6e3e", size = 5) +
+  labs(x = "Bray-Curtis dissimilarity (first vs last survey)",
+       y = "Number of plots") +
+  theme_minimal(base_size = 14) +
+  theme(panel.grid.minor = element_blank())
+```
+
+A median of **`r med_bc`** means the typical plot has changed substantially.
+
+## Finding 6 — Community change is statistically real {.smaller}
+
+We tested whether the difference between first and last surveys is larger than  
+what we'd expect by chance alone, while controlling for each plot's identity.
+
+<br>
+
+```{r permanova-table}
+pm <- perm_strict
+tibble(
+  Test     = "Paired PERMANOVA (999 permutations)",
+  `R²`     = round(pm$R2[1], 4),
+  `F`      = round(pm$F[1], 2),
+  `p-value` = "0.001"
+) %>%
+  kable(align = c("l","r","r","r")) %>%
+  kable_styling(font_size = 14, full_width = FALSE,
+                bootstrap_options = "striped")
+```
+
+<br>
+
+> **Plain language:** The first-vs-last difference is real, not random noise.  
+> It's small (R² = `r round(pm$R2[1]*100, 1)`%) but highly consistent across plots.
+
+## Finding 7 — Which environmental factors matter most? {.smaller}
+
+We fitted environmental variables onto the ordination (envfit).  
+Variables with longer arrows explain more of the community pattern.
+
+```{r envfit-table}
+fit_tbl_core <- bind_rows(
+  tibble(variable = names(fit_core$vectors$r),
+         r2       = as.numeric(fit_core$vectors$r),
+         p_value  = as.numeric(fit_core$vectors$pvals),
+         kind     = "continuous"),
+  if (!is.null(fit_core$factors))
+    tibble(variable = names(fit_core$factors$r),
+           r2       = as.numeric(fit_core$factors$r),
+           p_value  = as.numeric(fit_core$factors$pvals),
+           kind     = "categorical")
+) %>%
+  arrange(p_value) %>%
+  mutate(sig = case_when(p_value < 0.001 ~ "***",
+                         p_value < 0.01  ~ "**",
+                         p_value < 0.05  ~ "*",
+                         TRUE            ~ "ns"),
+         r2 = round(r2, 3),
+         p_value = round(p_value, 3))
+
+fit_tbl_core %>%
+  select(Variable = variable, `r²` = r2, `p` = p_value, ` ` = sig, Type = kind) %>%
+  kable(align = c("l","r","r","c","l")) %>%
+  kable_styling(font_size = 13, full_width = FALSE,
+                bootstrap_options = c("striped","hover"))
+```
+
+**Vascular plant cover** (`háplöntuþekja`) and **vegetation height** explain the most.
+
+## Finding 7 — The ordination map
+
+Each dot is one survey of one plot. Lines connect the **same plot** across time.  
+Arrows point toward increasing values of environmental variables.
+
+```{r nmds-plot, fig.height=5}
+ggplot(site_scores, aes(x = NMDS1, y = NMDS2)) +
+  geom_line(aes(group = plot_number),
+            colour = "grey65", linewidth = 0.28, alpha = 0.55) +
+  geom_point(aes(colour = sample, shape = sample),
+             size = 1.9, alpha = 0.82) +
+  geom_segment(
+    data = arrow_df_core,
+    aes(x = 0, y = 0, xend = xend, yend = yend),
+    arrow = arrow(length = unit(0.2, "cm"), type = "closed"),
+    colour = "#c0392b", linewidth = 0.7, inherit.aes = FALSE
+  ) +
+  geom_label_repel(
+    data = arrow_df_core,
+    aes(x = xend * 1.12, y = yend * 1.12, label = variable),
+    size = 3, colour = "#c0392b",
+    fill = alpha("white", 0.8), label.size = 0,
+    max.overlaps = 20, seed = 42, inherit.aes = FALSE
+  ) +
+  scale_colour_manual(values = c(first = col_first, last = col_last),
+                      labels = c(first = "First survey", last = "Last survey")) +
+  scale_shape_manual(values  = c(first = 16, last = 17),
+                     labels  = c(first = "First survey", last = "Last survey")) +
+  coord_equal() +
+  labs(colour = NULL, shape = NULL,
+       caption = sprintf("Stress = %.3f · excl. 3 coastal outlier plots",
+                         nmds_core$stress)) +
+  theme_classic(base_size = 12) +
+  theme(legend.position  = "bottom",
+        plot.caption     = element_text(colour = "grey50", size = 9))
+```
+
+## Finding 8 — Specific species are associated with change
+
+**IndVal analysis** identifies taxa that are consistently more common in  
+either the first or the last survey across all plots.
+
+```{r indval-plot, fig.height=4.8}
+top_iv <- indval_tbl %>%
+  group_by(survey) %>%
+  slice_min(order_by = p_adj, n = 10, with_ties = FALSE) %>%
+  ungroup()
+
+ggplot(top_iv, aes(x = stat,
+                   y = reorder(taxon, stat),
+                   fill = survey)) +
+  geom_col(alpha = 0.85) +
+  facet_wrap(~survey, scales = "free_y") +
+  scale_fill_manual(values = c("First survey" = col_first,
+                               "Last survey"  = col_last)) +
+  labs(x = "IndVal statistic (higher = stronger association)",
+       y = NULL,
+       title = "Top 10 indicator taxa per survey (FDR ≤ 5%)",
+       fill = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none",
+        strip.text       = element_text(face = "bold", size = 12),
+        panel.grid.minor = element_blank())
+```
+
+## What is driving the change?
+
+We cannot say definitively from this dataset alone — but the patterns are consistent with:
+
+- **Vegetation becoming taller and denser** in many plots  
+  (vascular cover and height are the strongest predictors of community pattern)
+
+- **Soil type and moisture matter** — some habitat types changed more than others
+
+- **The coastal sand plots are in their own world** — dune/beach communities  
+  shifted so dramatically they sit completely apart from the rest of the dataset
+
+<br>
+
+> These findings are correlational.  A designed resurvey with climate and land-use  
+> data alongside would let us test *why* communities are shifting.
+
+## Summary {.smaller}
+
+```{r summary-table}
+tibble(
+  Finding = c(
+    "Species richness",
+    "Shannon diversity",
+    "Total plant cover",
+    "Dominant species",
+    "Community composition",
+    "Statistical confidence"
+  ),
+  Result = c(
+    paste0(pct_gained, "% of plots gained species, ", pct_lost, "% lost"),
+    paste0("Median change = ", sh_med, " (mixed direction)"),
+    "Many plots show increased cover; some declined",
+    "Top 12 species largely different between surveys",
+    paste0("Median Bray-Curtis dissimilarity = ", med_bc),
+    paste0("PERMANOVA p = 0.001, R² = ",
+           round(perm_strict$R2[1]*100,1), "%")
+  )
+) %>%
+  kable(align = c("l", "l")) %>%
+  kable_styling(font_size = 13, full_width = TRUE,
+                bootstrap_options = c("striped", "hover"))
+```
+
+<br>
+
+> **Bottom line:** Icelandic vegetation plots have changed between surveys in  
+> ways that are consistent, measurable, and not explained by random variation.
+
+## Next steps {.smaller}
+
+<br>
+
+**Short term — squeeze more from this dataset**
+
+- Add survey-gap as a covariate: does more time = more change?
+- Split analysis by soil type to ask which habitats are most vulnerable
+- Spatial analysis: is change clustered geographically?
+
+<br>
+
+**Longer term — if new fieldwork is possible**
+
+- Resurvey a subset of plots with standardised protocol
+- Collect paired climate / land-use covariates
+- Move from "did it change?" to "why did it change?"
+
+## Methods in brief {.smaller}
+
+| Step | Detail |
+|---|---|
+| Data | `v_plants_allt.csv` · `r n_distinct(revisited_2$plot_number)` revisited plots |
+| Cover harmonisation | Braun-Blanquet codes → midpoints; numeric values used directly |
+| Paired design | Each plot compared to itself (first vs last survey only) |
+| Diversity | Species richness S, Shannon H, Simpson D, Pielou J |
+| Composition | Bray-Curtis dissimilarity, NMDS (k=2), paired PERMANOVA |
+| Environmental fit | `vegan::envfit` on strict driver set |
+| Indicator taxa | `indicspecies::multipatt` IndVal.g, BH-adjusted FDR |
+| Outliers | RN-02, RN-03, RN-65-01 excluded from NMDS (coastal dune plots) |
+| Software | R · tidyverse · vegan · indicspecies |

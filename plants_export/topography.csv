@@ -1,0 +1,5 @@
+id,name,comments,insert_user,insert_time,update_user,update_time
+7,Botn,B: Reitur í gildragi eða í greinilegri lægð miðað við næsta umhverfi.,asrun,2013-10-03T14:24:15Z,asrun,2013-10-03T14:24:55Z
+8,Toppur,T: Reitur á hól eða hæð miðað við næsta umhverfi.,asrun,2013-10-03T14:25:15Z,NA,NA
+9,Hlíð,"H: Reiturn utan í hól eða hæð, eða í brún lautar, bakka eða skornings.",asrun,2013-10-03T14:25:45Z,NA,NA
+10,Jafnlendi,"J: Allt land annað en bot, toppur eða hlíð. ",asrun,2013-10-03T14:26:15Z,NA,NA

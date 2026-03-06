@@ -1,0 +1,16 @@
+id,code,name,comments,insert_user,insert_time,update_user,update_time
+11,ju,Moraine,NA,kjartan,2013-05-29T10:26:08Z,NA,NA
+1,fl,Flag,E: Exposed soil,kjartan,2013-05-29T10:26:08Z,asrun,2013-10-08T12:48:06Z
+2,mo,Moldir,E: Bare soil,kjartan,2013-05-29T10:26:08Z,asrun,2013-10-08T12:49:26Z
+3,hvl,Hveraleir,E: Hydrothermal clay,kjartan,2013-05-29T10:26:08Z,asrun,2013-10-08T12:50:16Z
+4,sa,Sandur,E: Sandy flats,kjartan,2013-05-29T10:26:08Z,asrun,2013-10-08T12:50:36Z
+5,me,Melar,E: Gravelly flats,kjartan,2013-05-29T10:26:08Z,asrun,2013-10-08T12:51:06Z
+6,vi,Vikur,E: Pumice flats,kjartan,2013-05-29T10:26:08Z,asrun,2013-10-08T12:51:26Z
+8,sk,Skriður,E: Screes,kjartan,2013-05-29T10:26:08Z,asrun,2013-10-08T12:52:46Z
+9,gt,Stórgrýtt land,E: Rocks,kjartan,2013-05-29T10:26:08Z,asrun,2013-10-08T12:53:16Z
+10,kl,Klettar,E: Cliffs,kjartan,2013-05-29T10:26:08Z,asrun,2013-10-08T12:53:46Z
+13,ey,Þurrar áreyrar,"E: Riverwash, well drained",kjartan,2013-05-29T10:26:08Z,asrun,2013-10-08T12:54:06Z
+12,jo,Jökull,NA,kjartan,2013-05-29T10:26:08Z,asrun,2014-01-23T11:35:40Z
+15,av,Vatn,NA,kjartan,2013-05-29T10:26:08Z,asrun,2014-01-23T11:36:20Z
+14,le,Leirujarðvegur,"E: Riverwash, wet ATH",kjartan,2013-05-29T10:26:08Z,asrun,2014-05-20T10:39:57Z
+17,hr,Hraun,Er ekki viss,kjartan,2014-05-22T11:10:45Z,NA,NA

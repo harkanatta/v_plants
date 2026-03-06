@@ -1,0 +1,30 @@
+# Base: tidyverse (R + RStudio + tidyverse; no LaTeX). Shared R library on host (e.g. C:\r-library) keeps all installed packages.
+FROM rocker/tidyverse:latest
+
+# Install locales, UDUNITS-2 (units/sf), GEOS/PROJ/GDAL (sf), gdal-bin, and xvfb (virtual display for RStudio plots)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    locales \
+    libudunits2-0 \
+    libudunits2-dev \
+    libgdal-dev \
+    gdal-bin \
+    libgeos-dev \
+    libproj-dev \
+    xvfb \
+    && ldconfig \
+    && locale-gen is_IS.UTF-8 \
+    && update-locale LANG=is_IS.UTF-8 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN echo '.libPaths(c("/home/rstudio/R/library", .libPaths()))' >> /usr/local/lib/R/etc/Rprofile.site
+
+ENV LANG=is_IS.UTF-8 \
+    LANGUAGE=is_IS.UTF-8 \
+    LC_ALL=is_IS.UTF-8 \
+    LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu \
+    DISPLAY=:1
+
+ENV DISABLE_AUTH=true
+EXPOSE 8787
+
+CMD Xvfb :1 -screen 0 1024x768x24 -ac & /init

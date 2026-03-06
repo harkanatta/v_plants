@@ -1,0 +1,60 @@
+id,name,ecological_land_id,insert_user,insert_time,update_user,update_time
+1,Auravist,2,kjartan,2016-05-20T18:00:33Z,NA,NA
+2,Áreyravist,2,kjartan,2016-05-20T18:00:33Z,NA,NA
+3,Fléttuhraunavist,3,kjartan,2016-05-20T18:00:33Z,NA,NA
+4,Eyðihraunavist,3,kjartan,2016-05-20T18:00:33Z,NA,NA
+5,Lynghraunavist,3,kjartan,2016-05-20T18:00:33Z,NA,NA
+6,Mosahraunavist,3,kjartan,2016-05-20T18:00:33Z,NA,NA
+7,Eyðimelavist,4,kjartan,2016-05-20T18:00:33Z,NA,NA
+8,Grasmelavist,4,kjartan,2016-05-20T18:00:33Z,NA,NA
+9,Mosamelavist,4,kjartan,2016-05-20T18:00:33Z,NA,NA
+10,Sanda- og vikravist,4,kjartan,2016-05-20T18:00:33Z,NA,NA
+11,Víðimelavist,4,kjartan,2016-05-20T18:00:33Z,NA,NA
+12,Moldavist,5,kjartan,2016-05-20T18:00:33Z,NA,NA
+13,Ljónslappaskriðuvist,6,kjartan,2016-05-20T18:00:33Z,NA,NA
+14,Mosaskriðuvist,6,kjartan,2016-05-20T18:00:33Z,NA,NA
+15,Grasvíðiskriðuvist,6,kjartan,2016-05-20T18:00:33Z,NA,NA
+16,Sjávarklettavist,7,kjartan,2016-05-20T18:00:33Z,NA,NA
+17,Grasölduvist,7,kjartan,2016-05-20T18:00:33Z,NA,NA
+18,Gulstararfitjavist,7,kjartan,2016-05-20T18:00:33Z,NA,NA
+19,Landmelhólavist,7,kjartan,2016-05-20T18:00:33Z,NA,NA
+20,Strandmelhólavist,7,kjartan,2016-05-20T18:00:33Z,NA,NA
+21,Sjávarfitjungsvist,7,kjartan,2016-05-20T18:00:33Z,NA,NA
+22,Malarfjöruvist,7,kjartan,2016-05-20T18:00:33Z,NA,NA
+23,Sandfjöruvist,7,kjartan,2016-05-20T18:00:33Z,NA,NA
+24,Blómgresisvist,8,kjartan,2016-05-20T18:00:33Z,NA,NA
+25,Bugðupuntsvist,8,kjartan,2016-05-20T18:00:33Z,NA,NA
+26,Víðiengjavist,8,kjartan,2016-05-20T18:00:33Z,NA,NA
+27,Finnungsvist,8,kjartan,2016-05-20T18:00:34Z,NA,NA
+28,Hálíngresisvist,8,kjartan,2016-05-20T18:00:34Z,NA,NA
+29,Snarrótarvist,8,kjartan,2016-05-20T18:00:34Z,NA,NA
+30,Stinnastararvist,8,kjartan,2016-05-20T18:00:34Z,NA,NA
+31,Fjalldrapamóavist,9,kjartan,2016-05-20T18:00:34Z,NA,NA
+32,Fléttumóavist,9,kjartan,2016-05-20T18:00:34Z,NA,NA
+33,Grasmóavist,9,kjartan,2016-05-20T18:00:34Z,NA,NA
+34,Lyngmóavist H,9,kjartan,2016-05-20T18:00:34Z,NA,NA
+35,Lyngmóavist L,9,kjartan,2016-05-20T18:00:34Z,NA,NA
+36,Mosamóavist,9,kjartan,2016-05-20T18:00:34Z,NA,NA
+37,Flagmóavist,9,kjartan,2016-05-20T18:00:34Z,NA,NA
+38,Starmóavist,9,kjartan,2016-05-20T18:00:34Z,NA,NA
+39,Víðikjarrvist,9,kjartan,2016-05-20T18:00:34Z,NA,NA
+40,Víðimóavist,9,kjartan,2016-05-20T18:00:34Z,NA,NA
+41,Hélumosavist,10,kjartan,2016-05-20T18:00:34Z,NA,NA
+42,Melagambravist,10,kjartan,2016-05-20T18:00:34Z,NA,NA
+43,Mosaheiðavist,10,kjartan,2016-05-20T18:00:34Z,NA,NA
+44,Dýjavist,11,kjartan,2016-05-20T18:00:34Z,NA,NA
+45,Gulstararflóavist,11,kjartan,2016-05-20T18:00:34Z,NA,NA
+46,Hrossanálarvist,11,kjartan,2016-05-20T18:00:34Z,NA,NA
+47,Brokflóavist,11,kjartan,2016-05-20T18:00:34Z,NA,NA
+48,Hengistararflóavist,11,kjartan,2016-05-20T18:00:34Z,NA,NA
+49,Starungsflóavist,11,kjartan,2016-05-20T18:00:34Z,NA,NA
+50,Starungsmýravist,11,kjartan,2016-05-20T18:00:34Z,NA,NA
+51,Rekjuvist,11,kjartan,2016-05-20T18:00:34Z,NA,NA
+52,Runnamýravist L,11,kjartan,2016-05-20T18:00:34Z,NA,NA
+53,Runnamýravist H,11,kjartan,2016-05-20T18:00:34Z,NA,NA
+54,Rústamýravist,11,kjartan,2016-05-20T18:00:34Z,NA,NA
+55,Sandmýravist,11,kjartan,2016-05-20T18:00:34Z,NA,NA
+56,Tjarnastararflóavist,11,kjartan,2016-05-20T18:00:34Z,NA,NA
+58,Kjarrskógavist,12,kjartan,2016-05-30T15:23:08Z,NA,NA
+57,Blómskógavist,12,kjartan,2016-05-30T15:23:08Z,NA,NA
+59,Lyngskógavist,9,kjartan,2016-05-30T15:23:08Z,NA,NA

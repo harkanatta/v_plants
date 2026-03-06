@@ -1,0 +1,103 @@
+id,code,name,comments,insert_user,insert_time,update_user,update_time
+1,A1,Mosses (Racomitrium spp.),NA,kjartan,2013-05-29T10:26:08Z,NA,NA
+2,A2,Mosses with Carex bigelowii,NA,kjartan,2013-05-29T10:26:08Z,NA,NA
+3,A3,Mosses with Carex bigelowii and dwarf shrubs,NA,kjartan,2013-05-29T10:26:08Z,NA,NA
+4,A4,Mosses with dwarf shrubs,NA,kjartan,2013-05-29T10:26:08Z,NA,NA
+5,A5,Mosses with grasses,NA,kjartan,2013-05-29T10:26:08Z,NA,NA
+6,A6,Mosses with Kobresia myosuroides,NA,kjartan,2013-05-29T10:26:08Z,NA,NA
+7,A7,Mosses with Kobresia myosuroides and dwarf shrubs,NA,kjartan,2013-05-29T10:26:08Z,NA,NA
+8,A8,Mosses with grasses and dwarf shrubs,NA,kjartan,2013-05-29T10:26:08Z,NA,NA
+17,A9,Hélumosi  (snjómosi),,kjartan,2014-02-06T15:20:19Z,NA,NA
+18,A10,Hélumosar með grávíði,,kjartan,2014-02-06T15:20:19Z,NA,NA
+19,D6,Grasvíðir,,kjartan,2014-02-06T15:20:19Z,NA,NA
+20,B1,Krækilyng - fjalldrapi - bláberjalyng,,kjartan,2014-02-06T15:20:19Z,NA,NA
+21,B2,Krækilyng - bláberjalyng - sauðamergur,,kjartan,2014-02-06T15:20:19Z,NA,NA
+22,B3,Krækilyng - víðir,,kjartan,2014-02-06T15:20:19Z,NA,NA
+23,B4,Beitilyng - krækilyng - bláberjalyng,,kjartan,2014-02-06T15:20:19Z,NA,NA
+24,B5,Beitilyng - sortulyng - krækilyng,,kjartan,2014-02-06T15:20:19Z,NA,NA
+25,B6,Holtasóley - krækilyng - víðir,,kjartan,2014-02-06T15:20:19Z,NA,NA
+26,B7,Bláberjalyng - krækilyng - víðir,,kjartan,2014-02-06T15:20:19Z,NA,NA
+27,B8,Sortulyng - krækilyng - fjalldrapi,,kjartan,2014-02-06T15:20:19Z,NA,NA
+28,B9,Aðalbláberjalyng,,kjartan,2014-02-06T15:20:19Z,NA,NA
+29,C1,Fjalldrapi - bláberjalyng - krækilyng,,kjartan,2014-02-06T15:20:19Z,NA,NA
+30,C2,Fjalldrapi - þursaskegg - grös,,kjartan,2014-02-06T15:20:19Z,NA,NA
+31,C3,Fjalldrapi - víðir,,kjartan,2014-02-06T15:20:19Z,NA,NA
+32,C8,Fjalldrapi - beitilyng - krækilyng,,kjartan,2014-02-06T15:20:19Z,NA,NA
+33,D1,Grávíðir/Fjallavíðir - krækilyng,,kjartan,2014-02-06T15:20:19Z,NA,NA
+34,D2,Grávíðir/fjallavíðir - fjalldrapi,,kjartan,2014-02-06T15:20:19Z,NA,NA
+35,D3,Loðvíðir – grávíðir/fjallavíðir,,kjartan,2014-02-06T15:20:19Z,NA,NA
+36,E1,Þursaskegg,,kjartan,2014-02-06T15:20:19Z,NA,NA
+37,E2,Þursaskegg - smárunnar,,kjartan,2014-02-06T15:20:19Z,NA,NA
+38,E4,Þursaskegg - holtasóley,,kjartan,2014-02-06T15:20:19Z,NA,NA
+39,F1,Móasef,,kjartan,2014-02-06T15:20:19Z,NA,NA
+40,F2,Móasef - smárunnar,,kjartan,2014-02-06T15:20:19Z,NA,NA
+41,G1,Stinnastör,,kjartan,2014-02-06T15:20:19Z,NA,NA
+42,G2,Stinnastör - smárunnar,,kjartan,2014-02-06T15:20:19Z,NA,NA
+43,G3,Móastör - krækilyng - grávíðir,,kjartan,2014-02-06T15:20:19Z,NA,NA
+44,G4,Rjúpustör ,,kjartan,2014-02-06T15:20:19Z,NA,NA
+45,H1,Grös,,kjartan,2014-02-06T15:20:19Z,NA,NA
+46,H2,Grös með störum,,kjartan,2014-02-06T15:20:19Z,NA,NA
+47,H3,Grös með smárunnum,,kjartan,2014-02-06T15:20:19Z,NA,NA
+48,H7,Grös með elftingu,,kjartan,2014-02-06T15:20:19Z,NA,NA
+49,H4,Melgresi,,kjartan,2014-02-06T15:20:19Z,NA,NA
+50,H5,Sjávarfitjungur,,kjartan,2014-02-06T15:20:19Z,NA,NA
+51,H6,Finnungur,,kjartan,2014-02-06T15:20:19Z,NA,NA
+52,J1,Fléttur og smárunnar,,kjartan,2014-02-06T15:20:19Z,NA,NA
+53,J2,Grábreyskingur,,kjartan,2014-02-06T15:20:19Z,NA,NA
+54,L1,Hávaxnar blómjurtir,,kjartan,2014-02-06T15:20:19Z,NA,NA
+55,L2,Lágvaxnar blómjurtir,,kjartan,2014-02-06T15:20:19Z,NA,NA
+56,L3,Alaskalúpína,,kjartan,2014-02-06T15:20:20Z,NA,NA
+57,C5,Birkikjarr,,kjartan,2014-02-06T15:20:20Z,NA,NA
+58,D5,Gulvíðir - grös,,kjartan,2014-02-06T15:20:20Z,NA,NA
+59,C7,Birki - gulvíðikjarr,,kjartan,2014-02-06T15:20:20Z,NA,NA
+60,R1,"Garðlönd, korn- og grænfóðurakrar",,kjartan,2014-02-06T15:20:20Z,NA,NA
+61,R2,Túnrækt,"Tún í góðri rækt, notuð til slægna og/eða beitar",kjartan,2014-02-06T15:20:20Z,NA,NA
+62,R3,Aflagt tún.  ,Brotið land og ræktað en ekki nytjað lengur til heyöflunar þegar landgreining fer fram nema e.t.v. til beitar.  Þessi tún er hægt að nýta til heyöflunar aftur með því að bera á þau að nýju.,kjartan,2014-02-06T15:20:20Z,NA,NA
+63,R4,Gamalt tún eða framræst mýri. ,Tún sem ekki er hægt að taka til heynytja aftur án þess að endurvinna og votlendi sem er að breytast í graslendi vegna framræslu á fyrirhuguðum ræktunarsvæðum.,kjartan,2014-02-06T15:20:20Z,NA,NA
+64,R5,Ræktað graslendi.  ,Uppgræðslusvæði þar sem gróðurlítið land eða náttúruleg gróðurlendi hafa breyst í graslendi vegna áburðargjafar með eða án sáningar.,kjartan,2014-02-06T15:20:20Z,NA,NA
+65,R6,1. Barrtré  2. Lauftré.  ,Til þess að báðir flokkarnir séu merktir í sama reit þarf þekja þess flatarminni að vera meira en 10%. Sá flokkur sem meira er af er skráður fyrst,kjartan,2014-02-06T15:20:20Z,NA,NA
+66,T2,Hrossanál - starir - grös,,kjartan,2014-02-06T15:20:20Z,NA,NA
+67,T6,Broddastör - víðir - starir,,kjartan,2014-02-06T15:20:20Z,NA,NA
+68,T7,Sef,,kjartan,2014-02-06T15:20:20Z,NA,NA
+69,T9,Hrossanál - vingull,,kjartan,2014-02-06T15:20:20Z,NA,NA
+70,T10,Hrossanál - grávíðir/loðvíðir,,kjartan,2014-02-06T15:20:20Z,NA,NA
+71,T12,Bjúgstör,,kjartan,2014-02-06T15:20:20Z,NA,NA
+72,T3,Hálmgresi,,kjartan,2014-02-06T15:20:20Z,NA,NA
+73,T5,Grös - starir,,kjartan,2014-02-06T15:20:20Z,NA,NA
+74,T11,Hrafnafífa með hálmgresi,,kjartan,2014-02-06T15:20:20Z,NA,NA
+75,T4,Gulvíðir - starir - grös,,kjartan,2014-02-06T15:20:20Z,NA,NA
+76,T30,Vætumosar ,,kjartan,2014-02-06T15:20:20Z,NA,NA
+77,T31,Vætumosar  með víði,,kjartan,2014-02-06T15:20:20Z,NA,NA
+78,U1,Mýrastör/stinnastör - hengistör,,kjartan,2014-02-06T15:20:20Z,NA,NA
+79,U4,Mýrastör/stinnastör- klófífa,,kjartan,2014-02-06T15:20:20Z,NA,NA
+80,U5,Mýrastör/stinnastör,,kjartan,2014-02-06T15:20:20Z,NA,NA
+81,U8,Mýrastör/stinnastör - gulstör,,kjartan,2014-02-06T15:20:20Z,NA,NA
+82,U19,Mýrastör/stinnastör - tjarnastör,,kjartan,2014-02-06T15:20:20Z,NA,NA
+83,U12,Mýrafinnungur - mýrastör/stinnastör,,kjartan,2014-02-06T15:20:20Z,NA,NA
+84,U10,Mýrelfting,,kjartan,2014-02-06T15:20:20Z,NA,NA
+85,U13,Mýrastör/stinnastör - mýrelfting,,kjartan,2014-02-06T15:20:20Z,NA,NA
+86,U2,Mýrastör/stinnastör - víðir,,kjartan,2014-02-06T15:20:20Z,NA,NA
+87,U3,Mýrastör/stinnastör - fjalldrapi,,kjartan,2014-02-06T15:20:20Z,NA,NA
+88,U11,Gulvíðir - starir,,kjartan,2014-02-06T15:20:20Z,NA,NA
+89,U15,Skriðstör,,kjartan,2014-02-06T15:20:20Z,NA,NA
+90,U21,Dýjahnappur - lindaskart,,kjartan,2014-02-06T15:20:20Z,NA,NA
+91,U22,Barnamosar,,kjartan,2014-02-06T15:20:20Z,NA,NA
+93,U18,Klófífa - finnungur,,kjartan,2014-02-06T15:20:20Z,NA,NA
+94,V1,Gulstör,,kjartan,2014-02-06T15:20:20Z,NA,NA
+95,V7,Gulstör - blátoppastör -hálmgresi,,kjartan,2014-02-06T15:20:20Z,NA,NA
+96,V2,Tjarnastör,,kjartan,2014-02-06T15:20:20Z,NA,NA
+97,V3,Klófífa,,kjartan,2014-02-06T15:20:20Z,NA,NA
+98,V6,Hrafnastör - mýrastör - klófífa,,kjartan,2014-02-06T15:20:20Z,NA,NA
+99,V8,Klófífa - bláberjalyng - fjalldrapi,,kjartan,2014-02-06T15:20:20Z,NA,NA
+100,V9,Flóastör - klófífa,,kjartan,2014-02-06T15:20:20Z,NA,NA
+101,V4,Hengistör,,kjartan,2014-02-06T15:20:20Z,NA,NA
+102,V5,Vetrarkvíðastör,,kjartan,2014-02-06T15:20:20Z,NA,NA
+103,Y1,Fergin,,kjartan,2014-02-06T15:20:20Z,NA,NA
+104,Y2,Vatnsnál - vætuskúfur,,kjartan,2014-02-06T15:20:21Z,NA,NA
+105,Y3,Vatnsliðagras - brúsar,,kjartan,2014-02-06T15:20:21Z,NA,NA
+106,Y4,Lófótur,,kjartan,2014-02-06T15:20:21Z,NA,NA
+107,Y5,Lónasóley,,kjartan,2014-02-06T15:20:21Z,NA,NA
+108,Y6,Nykrur - marar ,,kjartan,2014-02-06T15:20:21Z,NA,NA
+109,Y7,Flóðapuntur,,kjartan,2014-02-06T15:20:21Z,NA,NA
+110,Y8,Hnúðsef,,kjartan,2014-02-06T15:20:21Z,NA,NA
+114,T32,T32,NA,kjartan,2014-05-27T16:48:36Z,NA,NA

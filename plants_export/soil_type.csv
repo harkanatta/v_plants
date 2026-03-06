@@ -1,0 +1,9 @@
+id,name,comments,insert_user,insert_time,update_user,update_time
+2,Lífræn jörð,"Li; votlendisjarðvegur þar sem lífræn efni ráða eiginleikum jarðvegs. Kolefnisinnihald >12%, getur þó verið mun lægra eða allt niður í 6-8%.",kjartan,2013-05-29T10:26:08Z,asrun,2013-10-04T11:26:19Z
+13,Melajörð,"M: Kolefnisrýr, fremur grófkorna þurrlendisjarðvegur. Ætíð talsvert af fínu efni neðan við gróft yfirborðslag. Uppruni er jökulruðningur. ",asrun,2013-10-04T11:27:59Z,NA,NA
+14,Eyrarjörð,"E: Kolefnisrýr, fremur grófkorna jarðvegur. Yfirleitt ófrjórri en melajörð (minna af fínum efnum). Efni að mestu aðflutt með vatni. ",asrun,2013-10-04T11:28:49Z,NA,NA
+15,Sandjörð,"S: Kolefnisrýr sandjarðvegur. Oftast á þurrlendi. Sandlag á yfirborði >12 cm þykkt. Sandjörð tilheyra einnig sendnir melar, þ.e. melar með >12 cm þykku sandlagi undir yfirborði, svo og vikrar þar sem kornastærð er að uppistöðu <2 mm.",asrun,2013-10-04T11:35:29Z,NA,NA
+16,Klapparjörð,"K: Grjót, klappir, skriður og hraun - jafnvel með þunnu jarðvegslagi (<2 cm). Í þennan flokk falla einnig grófir vikrar, þ.e. ef lítið er af kornum undir 2 mm.",asrun,2013-10-04T11:37:09Z,NA,NA
+17,Hverajörð,H: Ummyndaður jarðvegur af völdum jarðhita. Hverajörð einkennist af lagsílikötum á borð við smektít og kaolínít en einnig ýmsum járnsteindum. Það fer eftir ummyndunarstigi hvaða steind er ráðandi í jarðveginum. ,asrun,2013-10-04T11:38:29Z,NA,NA
+20,Leirujörð,Le; ,asrun,2014-05-08T15:07:26Z,asrun,2014-05-08T15:13:03Z
+12,Áfoksjörð,A: Brúnn þurrlendisjarðvegur. Nær yfir stóran hluta jarðvegs í mólendi og valllendi. Heldur miklu vatni. ,asrun,2013-10-04T11:25:49Z,kjartan,2014-06-18T15:36:10Z

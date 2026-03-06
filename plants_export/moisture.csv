@@ -1,0 +1,5 @@
+id,name,comments,insert_user,insert_time,update_user,update_time
+1,Flói,Forblautt land. Vatnsstaða er yfirleitt há þannig að víða sér í opið vatn.,asrun,2013-11-11T10:27:04Z,NA,NA
+2,Mýri,Blautt land þar sem alla jafna sér ekki í vatn á yfirborði. Jarðvegur er oftast blautur. ,asrun,2013-11-11T10:29:14Z,NA,NA
+3,Deiglendi,Deigt land er millistig milli þess sem kallast blautt og þurrt. Grunnvatn liggur yfirleitt nokkuð undir yfirborði. Jarðvegur er deigur viðkomu. ,asrun,2013-11-11T10:30:04Z,NA,NA
+4,Þurrlendi,Þar sem grunnvatn liggur að jafnaði talsvert undir yfirborði. Efstu lög jarðvegsins eru í litlu sambandi við grunnvatn. ,asrun,2013-11-11T10:30:54Z,NA,NA

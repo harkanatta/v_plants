@@ -1,0 +1,10 @@
+id,width,length,comments,insert_user,insert_time,update_user,update_time
+2,10,40,NA,asrun,2013-10-03T10:23:44Z,NA,NA
+5,10,10,NA,asrun,2014-01-21T13:54:42Z,NA,NA
+1,2,200,NA,kjartan,2013-05-29T10:26:08Z,asrun,2014-01-21T13:54:52Z
+6,2,50,NA,kjartan,2014-06-20T14:42:36Z,NA,NA
+7,4,25,NA,asrun,2015-01-09T14:57:14Z,NA,NA
+8,1,20,"Reitir notaðir í Blöndulóni, eru í raun 20*0,5 m",asrun,2015-02-23T13:35:03Z,NA,NA
+9,2,5,"Rammi á miðjan stíg, stígsbrún og 2 m frá miðju.",olgakolbrun,2020-11-16T15:04:56Z,NA,NA
+10,2,10,"Rammi á miðju stígs, stígsbrún og 2 m frá stígsbrún.",olgakolbrun,2020-11-16T15:05:36Z,NA,NA
+11,1,30,NA,nna.stella,2021-11-03T15:26:01Z,NA,NA

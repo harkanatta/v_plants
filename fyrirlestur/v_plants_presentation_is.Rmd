@@ -1,0 +1,1098 @@
+---
+title: "Gróðurfar á Íslandi er að breytast"
+subtitle: "Vísbendingar úr 167 endurmældum gróðurreitum"
+author: "Valtýr"
+date: "`r format(Sys.Date(), '%B %Y')`"
+output:
+  ioslides_presentation:
+    widescreen: true
+    smaller: true
+    css: presentation_style.css
+    fig_width: 9
+    fig_height: 5
+---
+
+```{r setup_is_duplicate, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center",
+  cache   = FALSE,
+  cache.path = "cache/pres_is_"
+)
+```
+
+```{r load-and-prep_is_duplicate, cache=TRUE}
+# ── pakkar ────────────────────────────────────────────────────────────────────
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(lubridate)
+  library(vegan)
+  library(ggrepel)
+  library(indicspecies)
+  library(knitr)
+  library(kableExtra)
+})
+set.seed(123)
+
+# ── sameiginlegur undirbúningur (hleður mat_strict, nmds_strict o.fl.) ──────
+prep_candidates <- c("v_plants_prep.R", "../v_plants_prep.R")
+prep_script <- prep_candidates[file.exists(prep_candidates)][1]
+if (is.na(prep_script)) {
+  stop("Could not locate v_plants_prep.R (tried: v_plants_prep.R, ../v_plants_prep.R)")
+}
+source(prep_script, local = TRUE)
+
+# ── tímabil milli mælinga ─────────────────────────────────────────────────────
+plot_years_gap <- plot_years %>%
+  mutate(gap_years = year_last - year_first) %>%
+  filter(n_years >= 2)
+
+# ── pöruð úrvinnsla (fyrri vs seinni mæling) ─────────────────────────────────
+heiti_include_vec <- stringr::str_trim(
+  v_plants2 %>% distinct(plot_number) %>% pull(plot_number)
+)
+
+revisited_2 <- plot_years %>%
+  filter(n_years >= 2) %>%
+  mutate(gap_years = year_last - year_first)
+
+dat <- v_plants2 %>%
+  filter(plot_number %in% revisited_2$plot_number) %>%
+  mutate(
+    cover_num = coalesce(
+      scale_value_value,
+      case_when(
+        scale_value_code %in% c("\u2022", "\u00b7", "+") &
+          scale_value_code == "+" ~ 0.75,
+        scale_value_code %in% c("\u2022", "\u00b7") ~ 0.25,
+        scale_value_code == "1" ~ 3,
+        scale_value_code == "2" ~ 15,
+        scale_value_code == "3" ~ 37.5,
+        scale_value_code == "4" ~ 62.5,
+        scale_value_code == "5" ~ 87.5,
+        TRUE ~ NA_real_
+      )
+    )
+  )
+
+pooled_plot_year <- dat %>%
+  filter(!is.na(cover_num), cover_num > 0) %>%
+  group_by(plot_number, year, taxon_name) %>%
+  summarise(cover = mean(cover_num, na.rm = TRUE), .groups = "drop")
+
+wide_plot_year <- pooled_plot_year %>%
+  pivot_wider(names_from = taxon_name, values_from = cover, values_fill = 0)
+
+# fjölbreytni fyrir reit x ár
+split_by_py <- wide_plot_year %>%
+  group_by(plot_number, year) %>% group_split()
+ids_py <- map(split_by_py, ~ .x %>% select(plot_number, year) %>% slice(1))
+mats_py <- map(split_by_py, ~ .x %>%
+                 select(-plot_number, -year) %>% as.matrix() %>% `[`(1, , drop = FALSE))
+
+diversity_py <- tibble(
+  plot_number = map_chr(ids_py, ~ .x$plot_number),
+  year        = map_dbl(ids_py, ~ .x$year),
+  S           = map_dbl(mats_py, ~ specnumber(.x)),
+  Shannon     = map_dbl(mats_py, ~ diversity(.x, index = "shannon")),
+  Simpson     = map_dbl(mats_py, ~ diversity(.x, index = "simpson"))
+) %>%
+  mutate(Evenness = Shannon / log(pmax(S, 1)))
+
+revisited_yrs <- revisited_2 %>% select(plot_number, year_first, year_last)
+
+paired_div <- diversity_py %>%
+  inner_join(revisited_yrs, by = "plot_number") %>%
+  filter(year %in% c(year_first, year_last))
+
+first_div <- paired_div %>% filter(year == year_first) %>%
+  select(plot_number, S_first = S, Shannon_first = Shannon,
+         Simpson_first = Simpson, Evenness_first = Evenness)
+
+last_div <- paired_div %>% filter(year == year_last) %>%
+  select(plot_number, S_last = S, Shannon_last = Shannon,
+         Simpson_last = Simpson, Evenness_last = Evenness)
+
+change <- first_div %>%
+  full_join(last_div, by = "plot_number") %>%
+  mutate(
+    delta_S        = S_last        - S_first,
+    delta_Shannon  = Shannon_last  - Shannon_first,
+    delta_Simpson  = Simpson_last  - Simpson_first,
+    delta_Evenness = Evenness_last - Evenness_first
+  )
+
+# ── þekjumestu tegundir: fyrri vs seinni ──────────────────────────────────────
+top_species <- pooled_plot_year %>%
+  inner_join(revisited_yrs, by = "plot_number") %>%
+  filter(year %in% c(year_first, year_last)) %>%
+  mutate(survey = if_else(year == year_first, "Fyrri mæling", "Seinni mæling")) %>%
+  group_by(survey, taxon_name) %>%
+  summarise(mean_cover = mean(cover, na.rm = TRUE),
+            n_plots    = n_distinct(plot_number), .groups = "drop") %>%
+  group_by(survey) %>%
+  slice_max(order_by = mean_cover, n = 12) %>%
+  ungroup()
+
+# ── heildarþekja per reit ─────────────────────────────────────────────────────
+cover_totals <- pooled_plot_year %>%
+  inner_join(revisited_yrs, by = "plot_number") %>%
+  filter(year %in% c(year_first, year_last)) %>%
+  mutate(survey = if_else(year == year_first, "Fyrri mæling", "Seinni mæling")) %>%
+  group_by(plot_number, survey) %>%
+  summarise(total_cover = sum(cover, na.rm = TRUE), .groups = "drop")
+
+cover_wide <- cover_totals %>%
+  pivot_wider(names_from = survey, values_from = total_cover)
+
+# ── Bray-Curtis á reit (fyrri vs seinni) ─────────────────────────────────────
+all_taxa <- wide_plot_year %>% select(-plot_number, -year) %>% names()
+
+get_vec <- function(pn, yr) {
+  r <- wide_plot_year %>% filter(plot_number == pn, year == yr)
+  if (nrow(r) == 0) return(setNames(rep(0, length(all_taxa)), all_taxa))
+  v <- r %>% select(-plot_number, -year) %>% as.matrix() %>% `[`(1, )
+  fv <- setNames(rep(0, length(all_taxa)), all_taxa)
+  fv[names(v)] <- v
+  as.numeric(fv[all_taxa])
+}
+
+distances <- revisited_2 %>%
+  mutate(
+    vec_first = map2(plot_number, year_first, get_vec),
+    vec_last  = map2(plot_number, year_last,  get_vec),
+    bc_dist   = map2_dbl(vec_first, vec_last,
+                         ~ as.numeric(vegdist(rbind(.x, .y), method = "bray")))
+  ) %>%
+  select(plot_number, year_first, year_last, gap_years, bc_dist)
+
+# ── IndVal (kjarnaúrtak án útlaga) ────────────────────────────────────────────
+outlier_plots <- c("RN-02", "RN-03", "RN-65-01")
+keep_rows  <- !meta_strict$plot_number %in% outlier_plots
+meta_core  <- meta_strict[keep_rows, ]
+mat_core   <- mat_strict[keep_rows, ]
+mat_core   <- mat_core[, colSums(mat_core) > 0]
+
+group_vec <- ifelse(meta_strict$sample == "first", 1L, 2L)
+indval_result <- multipatt(mat_strict, cluster = group_vec,
+                           control = how(nperm = 999),
+                           func = "IndVal.g", duleg = TRUE)
+
+indval_tbl <- indval_result$sign %>%
+  rownames_to_column("taxon") %>% as_tibble() %>%
+  rename(group = index) %>%
+  mutate(survey = if_else(group == 1L, "Fyrri mæling", "Seinni mæling"),
+         p_adj  = p.adjust(p.value, method = "BH")) %>%
+  filter(p_adj <= 0.05) %>%
+  arrange(p_adj)
+
+# ── NMDS kjarnaúrtak ──────────────────────────────────────────────────────────
+nmds_core <- metaMDS(mat_core, distance = "bray", k = 2,
+                     trymax = 200, trace = FALSE)
+
+env_core <- meta_core %>%
+  select(all_of(vars_driver_strict_final)) %>%
+  mutate(across(where(is.character), as.factor),
+         across(where(is.logical),   as.factor))
+
+fit_core <- envfit(nmds_core, env_core, permutations = 999)
+
+arrow_df_core <- as.data.frame(fit_core$vectors$arrows) %>%
+  rownames_to_column("variable") %>%
+  rename(ax1 = NMDS1, ax2 = NMDS2) %>%
+  mutate(r2      = fit_core$vectors$r,
+         p_value = fit_core$vectors$pvals) %>%
+  filter(p_value <= 0.05)
+
+site_scores <- as.data.frame(scores(nmds_core, display = "sites")) %>%
+  bind_cols(meta_core %>% select(plot_number, sample))
+
+ordi_r <- max(abs(c(site_scores$NMDS1, site_scores$NMDS2))) * 0.70
+arrow_df_core <- arrow_df_core %>%
+  mutate(xend = ax1 * ordi_r, yend = ax2 * ordi_r)
+
+# ── litir ─────────────────────────────────────────────────────────────────────
+col_first <- "#2980b9"
+col_last  <- "#e67e22"
+```
+
+## Um hvað snýst rannsóknin
+
+> Í þessari R-greiningu vinnum við með **`r n_distinct(revisited_2$plot_number)` endurmælda gróðurreiti** á Íslandi,  
+> með það að markmiði að meta breytingu í vistfræðilegri samsetningu milli fyrri og seinni mælingar.
+
+<br>
+
+### **Hefur gróðurfar breyst?**
+
+Stutta svarið er: **já, og breytingin er nógu samræmd til að mælast skýrt í gögnum.**
+
+## Gagnasafnið í stuttu máli {.smaller}
+
+```{r dataset-table}
+tibble(
+  Atriði = c(
+    "Endurmældir reitir",
+    "Heildarfjöldi tegundaskráninga",
+    "Fjöldi tegundanafna í gagnasafni",
+    "Stysta bil milli mælinga",
+    "Lengsta bil milli mælinga",
+    "Miðgildi bils"
+  ),
+  Gildi = c(
+    n_distinct(revisited_2$plot_number),
+    nrow(pooled_plot_year %>% filter(plot_number %in% revisited_2$plot_number)),
+    n_distinct(pooled_plot_year$taxon_name),
+    paste(min(plot_years_gap$gap_years, na.rm = TRUE), "ár"),
+    paste(max(plot_years_gap$gap_years, na.rm = TRUE), "ár"),
+    paste(median(plot_years_gap$gap_years, na.rm = TRUE), "ár")
+  )
+) %>%
+  kable(align = c("l", "r")) %>%
+  kable_styling(font_size = 14, full_width = FALSE,
+                bootstrap_options = c("striped", "hover"))
+```
+
+Hver reitur er borinn saman við sjálfan sig (fyrri vs seinni mæling).  
+Það dregur úr staðbundnum mun milli svæða og eykur skýrleika í tímabreytingu.
+
+## Niðurstaða 1 — Tegundaríki hefur færst
+
+Flestir reitir standa ekki í stað.
+
+```{r richness-scatter, fig.height=4.5, cache=FALSE}
+plot_richness_scatter <- change %>%
+  mutate(direction = if_else(S_last > S_first, "Aukning", "Minnkun eða óbreytt")) %>%
+  ggplot(aes(x = S_first, y = S_last)) +
+  geom_abline(slope = 1, intercept = 0,
+              linetype = "dashed", colour = "grey55", linewidth = 0.8) +
+  geom_point(aes(colour = direction), alpha = 0.55, size = 2.4) +
+  scale_colour_manual(values = c("Aukning" = col_last, "Minnkun eða óbreytt" = col_first), guide = "none") +
+  annotate("text", x = Inf, y = -Inf,
+           hjust = 1.1, vjust = -0.8, size = 4, colour = "grey40",
+           label = "Strikalína = engin breyting") +
+  labs(x = "Tegundafjöldi — fyrri mæling",
+       y = "Tegundafjöldi — seinni mæling") +
+  theme_minimal(base_size = 14) +
+  theme(panel.grid.minor = element_blank())
+
+print(plot_richness_scatter)
+```
+
+Punktar **fyrir ofan** línu = fleiri tegundir nú. Punktar **fyrir neðan** = færri.
+
+## Niðurstaða 1 — Hversu mikil var breytingin í tegundaríki?
+
+```{r richness-hist, fig.height=4.2}
+pct_gained <- round(100 * mean(change$delta_S > 0, na.rm = TRUE))
+pct_lost   <- round(100 * mean(change$delta_S < 0, na.rm = TRUE))
+med_ch     <- round(median(change$delta_S, na.rm = TRUE), 1)
+
+ggplot(change, aes(x = delta_S,
+                   fill = after_stat(x > 0))) +
+  geom_histogram(bins = 28, colour = "white", linewidth = 0.2) +
+  geom_vline(xintercept = 0, linetype = "dashed",
+             colour = "grey40", linewidth = 0.9) +
+  scale_fill_manual(values = c("FALSE" = col_first, "TRUE" = col_last),
+                    labels = c("Færri tegundir", "Fleiri tegundir"),
+                    name = NULL) +
+  labs(x = "Breyting í tegundafjölda (seinni − fyrri)",
+       y = "Fjöldi reita") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "bottom",
+        panel.grid.minor = element_blank())
+```
+
+**`r pct_gained`%** reita jukust í tegundafjölda &nbsp;·&nbsp; **`r pct_lost`%** drógust saman &nbsp;·&nbsp; miðgildi breytingar: **`r med_ch`**
+
+## Niðurstaða 2 — Fjölbreytni (ekki bara fjöldi) hefur líka breyst
+
+Tegundafjöldi telur einungis fjölda tegunda.  
+**Shannon-fjölbreytni** tekur einnig tillit til dreifingar þekju milli tegunda.
+
+```{r shannon-panel, fig.height=4.2}
+sh_med <- round(median(change$delta_Shannon, na.rm = TRUE), 3)
+ev_med <- round(median(change$delta_Evenness, na.rm = TRUE), 3)
+
+change_long <- change %>%
+  select(plot_number, delta_Shannon, delta_Evenness) %>%
+  pivot_longer(-plot_number, names_to = "index", values_to = "delta") %>%
+  mutate(index = recode(index,
+    delta_Shannon  = "Shannon-fjölbreytni",
+    delta_Evenness = "Jafngildi (hversu jafnt\ntegundir skipta þekju)"
+  ))
+
+ggplot(change_long, aes(x = delta, fill = after_stat(x > 0))) +
+  geom_histogram(bins = 25, colour = "white", linewidth = 0.2) +
+  geom_vline(xintercept = 0, linetype = "dashed",
+             colour = "grey40", linewidth = 0.9) +
+  facet_wrap(~index, scales = "free_x") +
+  scale_fill_manual(values = c("FALSE" = col_first, "TRUE" = col_last),
+                    guide = "none") +
+  labs(x = "Breyting (seinni − fyrri)", y = "Fjöldi reita") +
+  theme_minimal(base_size = 13) +
+  theme(strip.text = element_text(face = "bold"),
+        panel.grid.minor = element_blank())
+```
+
+Miðgildi breytingar í Shannon: **`r sh_med`** &nbsp;·&nbsp; miðgildi jafngildis: **`r ev_med`**
+
+## Niðurstaða 3 — Heildarþekja gróðurs hefur einnig breyst
+
+Ekki bara hvaða tegundir eru til staðar, heldur líka hversu mikil gróðurþekjan er.
+
+```{r cover-scatter, fig.height=4.5}
+ggplot(cover_wide,
+       aes(x = `Fyrri mæling`, y = `Seinni mæling`)) +
+  geom_abline(slope = 1, intercept = 0,
+              linetype = "dashed", colour = "grey55", linewidth = 0.8) +
+  geom_point(alpha = 0.5, size = 2.4,
+             colour = if_else(cover_wide$`Seinni mæling` > cover_wide$`Fyrri mæling`,
+                              col_last, col_first)) +
+  labs(x = "Heildarþekja — fyrri mæling (%)",
+       y = "Heildarþekja — seinni mæling (%)") +
+  theme_minimal(base_size = 14) +
+  theme(panel.grid.minor = element_blank())
+```
+
+Punktar fyrir ofan línu sýna aukna heildarþekju.
+
+## Niðurstaða 4 — Ríkjandi tegundir eru ekki þær sömu
+
+Tegundir sem voru ríkjandi í fyrri mælingu eru oft ekki þær sömu og ríkja í seinni mælingu.
+
+```{r top-species-plot, fig.height=5}
+ggplot(top_species,
+       aes(x = mean_cover,
+           y = reorder(taxon_name, mean_cover),
+           fill = survey)) +
+  geom_col(alpha = 0.85, width = 0.7) +
+  facet_wrap(~survey, scales = "free_y") +
+  scale_fill_manual(values = c("Fyrri mæling" = col_first,
+                               "Seinni mæling"  = col_last)) +
+  labs(x = "Meðalþekja milli reita (%)",
+       y = NULL,
+       title = "12 þekjumestu tegundir",
+       fill = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none",
+        strip.text      = element_text(face = "bold", size = 13),
+        panel.grid.minor = element_blank())
+```
+
+## Niðurstaða 5 — Samsetning samfélaga hefur færst
+
+Bray-Curtis aðgreindargildi mælir hversu ólík tegundasamsetning reitsins er milli fyrri og seinni mælingar.  
+**0 = nákvæmlega sama samsetning. 1 = engar sameiginlegar tegundir.**
+
+```{r bc-hist, fig.height=4}
+med_bc <- round(median(distances$bc_dist, na.rm = TRUE), 2)
+
+ggplot(distances, aes(x = bc_dist)) +
+  geom_histogram(bins = 28, fill = "#27ae60",
+                 colour = "white", linewidth = 0.2, alpha = 0.85) +
+  geom_vline(xintercept = med_bc, colour = "#1a6e3e",
+             linetype = "dashed", linewidth = 1) +
+  annotate("text", x = med_bc + 0.03, y = Inf, vjust = 1.5, hjust = 0,
+           label = paste0("Miðgildi = ", med_bc), colour = "#1a6e3e", size = 5) +
+  labs(x = "Bray-Curtis aðgreindargildi (fyrri vs seinni mæling)",
+       y = "Fjöldi reita") +
+  theme_minimal(base_size = 14) +
+  theme(panel.grid.minor = element_blank())
+```
+
+Miðgildi **`r med_bc`** bendir til þess að dæmigerður reitur hafi breyst umtalsvert.
+
+## Niðurstaða 6 — Breyting í samfélagssamsetningu er tölfræðilega raunveruleg {.smaller}
+
+Prófað var hvort munur milli fyrri og seinni mælingar væri meiri en búast mætti við af tilviljun,  
+með tilliti til þess að hver reitur er pöruð eining.
+
+<br>
+
+```{r permanova-table}
+pm <- perm_strict
+tibble(
+  Próf     = "Pöruð umraðanagreining — PERMANOVA (999 umraðanir)",
+  `R²`     = round(pm$R2[1], 4),
+  `F`      = round(pm$F[1], 2),
+  `p-gildi` = "0.001"
+) %>%
+  kable(align = c("l","r","r","r")) %>%
+  kable_styling(font_size = 14, full_width = FALSE,
+                bootstrap_options = "striped")
+```
+
+<br>
+
+> **Í stuttu máli:** Munurinn milli fyrri og seinni mælingar er raunverulegur, ekki slembisveifla.  
+> Skýringarhlutfallið er hóflegt (R² = `r round(pm$R2[1]*100, 1)`%) en mynstrið endurtekur sig á milli reita.
+
+## Niðurstaða 7 — Hvaða umhverfisþættir tengjast mynstrinu mest? {.smaller}
+
+Umhverfisbreytur voru varpaðar á hnitunina með `envfit`.  
+Lengri örvar tákna sterkari tengsl við meginmynstur í tegundasamsetningu.
+
+```{r envfit-table}
+fit_tbl_core <- bind_rows(
+  tibble(variable = names(fit_core$vectors$r),
+         r2       = as.numeric(fit_core$vectors$r),
+         p_value  = as.numeric(fit_core$vectors$pvals),
+         kind     = "samfelld breyta"),
+  if (!is.null(fit_core$factors))
+    tibble(variable = names(fit_core$factors$r),
+           r2       = as.numeric(fit_core$factors$r),
+           p_value  = as.numeric(fit_core$factors$pvals),
+           kind     = "flokkabreytur")
+) %>%
+  arrange(p_value) %>%
+  mutate(sig = case_when(p_value < 0.001 ~ "***",
+                         p_value < 0.01  ~ "**",
+                         p_value < 0.05  ~ "*",
+                         TRUE            ~ "ns"),
+         r2 = round(r2, 3),
+         p_value = round(p_value, 3))
+
+fit_tbl_core %>%
+  mutate(variable = dplyr::recode(variable,
+    "háplöntuþekja"    = "háplöntuþekja",
+    "soil_depth"       = "jarðvegsdýpt",
+    "total_cover"      = "heildarþekja",
+    "vegetation_height_1" = "gróðurhæð",
+    "soil_type_name"   = "jarðvegsgerð",
+    "moisture_name"    = "rakastig",
+    "permafrost"       = "frörimi",
+    "topography_name"  = "landslag"
+  )) %>%
+  select(Breyta = variable, `r²` = r2, `p` = p_value, ` ` = sig, Tegund = kind) %>%
+  kable(align = c("l","r","r","c","l")) %>%
+  kable_styling(font_size = 13, full_width = FALSE,
+                bootstrap_options = c("striped","hover"))
+```
+
+Sterkustu tengingarnar eru við **háplöntuþekju** og **gróðurhæð**.
+
+## Niðurstaða 7 — Hnitunarkort (ordination)
+
+Hver punktur er ein mæling í einum reit. Línur tengja **sama reit** milli fyrri og seinni mælingar.  
+Örvar sýna stefnu hækkandi gilda umhverfisbreyta.
+
+```{r nmds-plot, fig.height=5}
+ggplot(site_scores, aes(x = NMDS1, y = NMDS2)) +
+  geom_line(aes(group = plot_number),
+            colour = "grey65", linewidth = 0.28, alpha = 0.55) +
+  geom_point(aes(colour = sample, shape = sample),
+             size = 1.9, alpha = 0.82) +
+  geom_segment(
+    data = arrow_df_core,
+    aes(x = 0, y = 0, xend = xend, yend = yend),
+    arrow = arrow(length = unit(0.2, "cm"), type = "closed"),
+    colour = "#c0392b", linewidth = 0.7, inherit.aes = FALSE
+  ) +
+  geom_label_repel(
+    data = arrow_df_core,
+    aes(x = xend * 1.12, y = yend * 1.12, label = variable),
+    size = 3, colour = "#c0392b",
+    fill = alpha("white", 0.8), label.size = 0,
+    max.overlaps = 20, seed = 42, inherit.aes = FALSE
+  ) +
+  scale_colour_manual(values = c(first = col_first, last = col_last),
+                      labels = c(first = "Fyrri mæling", last = "Seinni mæling")) +
+  scale_shape_manual(values  = c(first = 16, last = 17),
+                     labels  = c(first = "Fyrri mæling", last = "Seinni mæling")) +
+  coord_equal() +
+  labs(colour = NULL, shape = NULL,
+       caption = sprintf("Stress = %.3f · 3 strandsvæðisreitir teknir út (sjá aðferðir)",
+                         nmds_core$stress)) +
+  theme_classic(base_size = 12) +
+  theme(legend.position  = "bottom",
+        plot.caption     = element_text(colour = "grey50", size = 9))
+```
+
+## Niðurstaða 8 — Ákveðnar tegundir tengjast breytingu
+
+**IndVal-greining** finnur tegundir sem tengjast markvisst annaðhvort fyrri eða seinni mælingu — vísbendingategundir fyrir hverja tímabilið.
+
+```{r indval-plot, fig.height=4.8}
+top_iv <- indval_tbl %>%
+  group_by(survey) %>%
+  slice_min(order_by = p_adj, n = 10, with_ties = FALSE) %>%
+  ungroup()
+
+ggplot(top_iv, aes(x = stat,
+                   y = reorder(taxon, stat),
+                   fill = survey)) +
+  geom_col(alpha = 0.85) +
+  facet_wrap(~survey, scales = "free_y") +
+  scale_fill_manual(values = c("Fyrri mæling" = col_first,
+                               "Seinni mæling"  = col_last)) +
+  labs(x = "IndVal-stuðull (hærra = sterkari tenging)",
+       y = NULL,
+       title = "10 sterkustu vísbendingategundir í hvorri mælingu (FDR ≤ 5%)",
+       fill = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none",
+        strip.text       = element_text(face = "bold", size = 12),
+        panel.grid.minor = element_blank())
+```
+
+## Hvað virðist knýja breytingarnar?
+
+Út frá þessum gögnum ein og sér er ekki hægt að staðfesta orsakir.  
+En mynstrið er samræmt við:
+
+- **Aukna hæð og þéttleika gróðurs** í mörgum reitum  
+  (háplöntuþekja og gróðurhæð hafa sterkustu tengslin).
+
+- **Áhrif vistgerðar** — jarðvegstegund og raki skipta máli.
+
+- **Sérstöðu strand-/sandreita** — þeir mynda aðskilið mynstur í hnitun.
+
+<br>
+
+> Þessar niðurstöður sýna fylgni, ekki orsakatengsl. Markviss endurmæling með samhliða loftslags-  
+> og landnýtingargögnum myndi gera kleift að svara betur *hvers vegna* samfélögin eru að færast.
+
+## Samantekt {.smaller}
+
+```{r summary-table}
+tibble(
+  Niðurstaða = c(
+    "Tegundafjöldi",
+    "Shannon-fjölbreytni",
+    "Heildarþekja gróðurs",
+    "Ríkjandi tegundir",
+    "Gróðursamsetning",
+    "Tölfræðilegt öryggi"
+  ),
+  Túlkun = c(
+    paste0(pct_gained, "% reita jukust, ", pct_lost, "% drógust saman"),
+    paste0("Miðgildi breytingar = ", sh_med, " (blönduð stefna)"),
+    "Margar stöðvar sýna aukna þekju, sumar minnkun",
+    "12 þekjumestu tegundir eru að verulegu leyti aðrar",
+    paste0("Miðgildi Bray-Curtis = ", med_bc),
+    paste0("PERMANOVA p = 0.001, R² = ",
+           round(perm_strict$R2[1]*100,1), "%")
+  )
+) %>%
+  kable(align = c("l", "l")) %>%
+  kable_styling(font_size = 13, full_width = TRUE,
+                bootstrap_options = c("striped", "hover"))
+```
+
+<br>
+
+> **Kjarnaniðurstaða:** Gróðurreitir á Íslandi hafa færst milli mælinga á mælanlegan og samræmdan hátt,  
+> og breytingin skýrist ekki af tilviljun einni.
+
+## Næstu skref {.smaller}
+
+<br>
+
+**Til skemmri tíma — hámarka upplýsingagildi núverandi gagnasafns**
+
+- Setja bil milli mælinga (`gap_years`) inn sem skýribreytu
+- Keyra lagskiptar greiningar eftir jarðvegsgerð/vistgerð
+- Meta landfræðilega klösun breytinga (rúmgreining)
+
+<br>
+
+**Til lengri tíma — ef ný vettvangsgögn fást**
+
+- Endurmæla valda reiti með stöðluðu verklagi
+- Safna samhliða loftslags- og landnýtingarbreytum
+- Færa greiningu frá „hefur breyst?“ yfir í „hvers vegna breytist?“
+
+## Aðferðir í stuttu máli {.smaller}
+
+| Skref | Lýsing |
+|---|---|
+| Gögn | `v_plants_allt.csv` · `r n_distinct(revisited_2$plot_number)` endurmældir reitir |
+| Þekjusamhæfing | Braun-Blanquet flokkar → miðgildi; tölugildi notuð beint |
+| Pöruð hönnun | Hver reitur borinn saman við sjálfan sig (fyrri vs seinni mæling) |
+| Fjölbreytni | Tegundafjöldi S, Shannon H, Simpson D, Pielou J |
+| Samsetning | Bray-Curtis ólíkindi, NMDS (k=2), pöruð PERMANOVA |
+| Umhverfisvörpun | `vegan::envfit` á ströngu breytusetti |
+| Vísbendingategundir | `indicspecies::multipatt` IndVal.g, BH-leiðrétt FDR |
+| Fráteknir reitir | RN-02, RN-03, RN-65-01 teknir út úr NMDS (strandsvæðissamfélög) |
+| Hugbúnaður | R · tidyverse · vegan · indicspecies |
+---
+title: "Gróðurmælingar"
+subtitle: "Vísbendingar úr 167 endurmældum reitum"
+author: ""
+date: "`r format(Sys.Date(), '%B %Y')`"
+output:
+  ioslides_presentation:
+    widescreen: true
+    smaller: true
+    css: presentation_style.css
+    fig_width: 9
+    fig_height: 5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center",
+  cache   = FALSE,
+  cache.path = "cache/pres_is_"
+)
+```
+
+```{r load-and-prep, cache=TRUE}
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(lubridate)
+  library(vegan)
+  library(ggrepel)
+  library(indicspecies)
+  library(knitr)
+  library(kableExtra)
+})
+set.seed(123)
+
+prep_candidates <- c("v_plants_prep.R", "../v_plants_prep.R")
+prep_script <- prep_candidates[file.exists(prep_candidates)][1]
+if (is.na(prep_script)) {
+  stop("Could not locate v_plants_prep.R (tried: v_plants_prep.R, ../v_plants_prep.R)")
+}
+source(prep_script, local = TRUE)
+
+plot_years_gap <- plot_years %>%
+  mutate(gap_years = year_last - year_first) %>%
+  filter(n_years >= 2)
+
+revisited_2 <- plot_years %>%
+  filter(n_years >= 2) %>%
+  mutate(gap_years = year_last - year_first)
+
+dat <- v_plants2 %>%
+  filter(plot_number %in% revisited_2$plot_number) %>%
+  mutate(
+    cover_num = coalesce(
+      scale_value_value,
+      case_when(
+        scale_value_code == "+" ~ 0.75,
+        scale_value_code %in% c("\u2022", "\u00b7") ~ 0.25,
+        scale_value_code == "1" ~ 3,
+        scale_value_code == "2" ~ 15,
+        scale_value_code == "3" ~ 37.5,
+        scale_value_code == "4" ~ 62.5,
+        scale_value_code == "5" ~ 87.5,
+        TRUE ~ NA_real_
+      )
+    )
+  )
+
+pooled_plot_year <- dat %>%
+  filter(!is.na(cover_num), cover_num > 0) %>%
+  group_by(plot_number, year, taxon_name) %>%
+  summarise(cover = mean(cover_num, na.rm = TRUE), .groups = "drop")
+
+wide_plot_year <- pooled_plot_year %>%
+  pivot_wider(names_from = taxon_name, values_from = cover, values_fill = 0)
+
+split_by_py <- wide_plot_year %>%
+  group_by(plot_number, year) %>% group_split()
+ids_py <- map(split_by_py, ~ .x %>% select(plot_number, year) %>% slice(1))
+mats_py <- map(split_by_py, ~ .x %>%
+                 select(-plot_number, -year) %>% as.matrix() %>% `[`(1, , drop = FALSE))
+
+diversity_py <- tibble(
+  plot_number = map_chr(ids_py, ~ .x$plot_number),
+  year        = map_dbl(ids_py, ~ .x$year),
+  S           = map_dbl(mats_py, ~ specnumber(.x)),
+  Shannon     = map_dbl(mats_py, ~ diversity(.x, index = "shannon")),
+  Simpson     = map_dbl(mats_py, ~ diversity(.x, index = "simpson"))
+) %>%
+  mutate(Evenness = Shannon / log(pmax(S, 1)))
+
+revisited_yrs <- revisited_2 %>% select(plot_number, year_first, year_last)
+
+paired_div <- diversity_py %>%
+  inner_join(revisited_yrs, by = "plot_number") %>%
+  filter(year %in% c(year_first, year_last))
+
+first_div <- paired_div %>% filter(year == year_first) %>%
+  select(plot_number, S_first = S, Shannon_first = Shannon,
+         Simpson_first = Simpson, Evenness_first = Evenness)
+
+last_div <- paired_div %>% filter(year == year_last) %>%
+  select(plot_number, S_last = S, Shannon_last = Shannon,
+         Simpson_last = Simpson, Evenness_last = Evenness)
+
+change <- first_div %>%
+  full_join(last_div, by = "plot_number") %>%
+  mutate(
+    delta_S        = S_last        - S_first,
+    delta_Shannon  = Shannon_last  - Shannon_first,
+    delta_Simpson  = Simpson_last  - Simpson_first,
+    delta_Evenness = Evenness_last - Evenness_first
+  )
+
+top_species <- pooled_plot_year %>%
+  inner_join(revisited_yrs, by = "plot_number") %>%
+  filter(year %in% c(year_first, year_last)) %>%
+  mutate(survey = if_else(year == year_first, "Fyrri mæling", "Seinni mæling")) %>%
+  group_by(survey, taxon_name) %>%
+  summarise(mean_cover = mean(cover, na.rm = TRUE),
+            n_plots    = n_distinct(plot_number), .groups = "drop") %>%
+  group_by(survey) %>%
+  slice_max(order_by = mean_cover, n = 12) %>%
+  ungroup()
+
+cover_totals <- pooled_plot_year %>%
+  inner_join(revisited_yrs, by = "plot_number") %>%
+  filter(year %in% c(year_first, year_last)) %>%
+  mutate(survey = if_else(year == year_first, "Fyrri mæling", "Seinni mæling")) %>%
+  group_by(plot_number, survey) %>%
+  summarise(total_cover = sum(cover, na.rm = TRUE), .groups = "drop")
+
+cover_wide <- cover_totals %>%
+  pivot_wider(names_from = survey, values_from = total_cover)
+
+all_taxa <- wide_plot_year %>% select(-plot_number, -year) %>% names()
+get_vec <- function(pn, yr) {
+  r <- wide_plot_year %>% filter(plot_number == pn, year == yr)
+  if (nrow(r) == 0) return(setNames(rep(0, length(all_taxa)), all_taxa))
+  v <- r %>% select(-plot_number, -year) %>% as.matrix() %>% `[`(1, )
+  fv <- setNames(rep(0, length(all_taxa)), all_taxa)
+  fv[names(v)] <- v
+  as.numeric(fv[all_taxa])
+}
+
+distances <- revisited_2 %>%
+  mutate(
+    vec_first = map2(plot_number, year_first, get_vec),
+    vec_last  = map2(plot_number, year_last,  get_vec),
+    bc_dist   = map2_dbl(vec_first, vec_last,
+                         ~ as.numeric(vegdist(rbind(.x, .y), method = "bray")))
+  ) %>%
+  select(plot_number, year_first, year_last, gap_years, bc_dist)
+
+outlier_plots <- c("RN-02", "RN-03", "RN-65-01")
+keep_rows  <- !meta_strict$plot_number %in% outlier_plots
+meta_core  <- meta_strict[keep_rows, ]
+mat_core   <- mat_strict[keep_rows, ]
+mat_core   <- mat_core[, colSums(mat_core) > 0]
+
+group_vec <- ifelse(meta_strict$sample == "first", 1L, 2L)
+indval_result <- multipatt(mat_strict, cluster = group_vec,
+                           control = how(nperm = 999),
+                           func = "IndVal.g", duleg = TRUE)
+
+indval_tbl <- indval_result$sign %>%
+  rownames_to_column("taxon") %>% as_tibble() %>%
+  rename(group = index) %>%
+  mutate(survey = if_else(group == 1L, "Fyrri mæling", "Seinni mæling"),
+         p_adj  = p.adjust(p.value, method = "BH")) %>%
+  filter(p_adj <= 0.05) %>%
+  arrange(p_adj)
+
+nmds_core <- metaMDS(mat_core, distance = "bray", k = 2,
+                     trymax = 200, trace = FALSE)
+
+env_core <- meta_core %>%
+  select(all_of(vars_driver_strict_final)) %>%
+  mutate(across(where(is.character), as.factor),
+         across(where(is.logical),   as.factor))
+fit_core <- envfit(nmds_core, env_core, permutations = 999)
+
+arrow_df_core <- as.data.frame(fit_core$vectors$arrows) %>%
+  rownames_to_column("variable") %>%
+  rename(ax1 = NMDS1, ax2 = NMDS2) %>%
+  mutate(r2 = fit_core$vectors$r, p_value = fit_core$vectors$pvals) %>%
+  filter(p_value <= 0.05)
+
+site_scores <- as.data.frame(scores(nmds_core, display = "sites")) %>%
+  bind_cols(meta_core %>% select(plot_number, sample))
+ordi_r <- max(abs(c(site_scores$NMDS1, site_scores$NMDS2))) * 0.70
+arrow_df_core <- arrow_df_core %>%
+  mutate(xend = ax1 * ordi_r, yend = ax2 * ordi_r)
+
+col_first <- "#2980b9"
+col_last  <- "#e67e22"
+```
+
+## Um hvað snýst rannsóknin
+
+Í þessari greiningu er unnið með gögn úr **`r n_distinct(revisited_2$plot_number)` endurmældum gróðurreitum** á Íslandi.  
+Úrvinnslan byggir á pöruðum samanburði þar sem fyrir hvern reit er fyrri og síðari mæling borin saman.
+
+### Spurning
+**Hefur gróðurinn breyst á milli mælinga?**
+
+## Gögnin í stuttu máli {.smaller}
+
+```{r dataset-table-is}
+tibble(
+  `Atriði` = c(
+    "Endurmældir reitir",
+    "Heildarfjöldi tegundaskráninga",
+    "Fjöldi tegundanafna í gagnasafni",
+    "Stysta bil milli mælinga",
+    "Lengsta bil milli mælinga",
+    "Miðgildi bils"
+  ),
+  `Gildi` = c(
+    n_distinct(revisited_2$plot_number),
+    nrow(pooled_plot_year %>% filter(plot_number %in% revisited_2$plot_number)),
+    n_distinct(pooled_plot_year$taxon_name),
+    paste(min(plot_years_gap$gap_years, na.rm = TRUE), "ár"),
+    paste(max(plot_years_gap$gap_years, na.rm = TRUE), "ár"),
+    paste(median(plot_years_gap$gap_years, na.rm = TRUE), "ár")
+  )
+) %>%
+  kable(align = c("l", "r")) %>%
+  kable_styling(font_size = 14, full_width = FALSE,
+                bootstrap_options = c("striped", "hover"))
+```
+
+## Niðurstaða 1 — Tegundaríki hefur breyst
+
+```{r richness-scatter-is, fig.height=4.5}
+plot_richness_scatter <- change %>%
+  mutate(direction = if_else(S_last > S_first, "Aukning", "Minnkun eða óbreytt")) %>%
+  ggplot(aes(x = S_first, y = S_last)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey55", linewidth = 0.8) +
+  geom_point(aes(colour = direction), alpha = 0.55, size = 2.4) +
+  scale_colour_manual(values = c("Aukning" = col_last, "Minnkun eða óbreytt" = col_first), guide = "none") +
+  labs(x = "Tegundafjöldi — fyrri mæling", y = "Tegundafjöldi — seinni mæling") +
+  theme_minimal(base_size = 14)
+print(plot_richness_scatter)
+```
+
+Punktar **fyrir ofan** línu = fleiri tegundir í seinni mælingu. Punktar **fyrir neðan** línu færri tegundir í seinni mælingu.
+
+## Niðurstaða 2 — Gróðursamfélögin sjálf hafa færst
+
+```{r bc-hist-is, fig.height=4}
+med_bc <- round(median(distances$bc_dist, na.rm = TRUE), 2)
+ggplot(distances, aes(x = bc_dist)) +
+  geom_histogram(bins = 28, fill = "#27ae60", colour = "white", linewidth = 0.2, alpha = 0.85) +
+  geom_vline(xintercept = med_bc, colour = "#1a6e3e", linetype = "dashed", linewidth = 1) +
+  labs(x = "Bray-Curtis aðgreindargildi (fyrri vs seinni mæling)", y = "Fjöldi reita") +
+  theme_minimal(base_size = 14)
+```
+
+Miðgildi Bray-Curtis er **`r med_bc`** — sem bendir til verulegrar breytingar í mörgum reitum.
+
+## Niðurstaða 3 — Breytingin er tölfræðilega marktæk {.smaller}
+
+```{r permanova-table-is}
+pm <- perm_strict
+tibble(
+  Prófun = "Pöruð umraðanagreining — PERMANOVA (999 umraðanir)",
+  `R²` = round(pm$R2[1], 4),
+  `F` = round(pm$F[1], 2),
+  `p-gildi` = "0.001"
+) %>%
+  kable(align = c("l","r","r","r")) %>%
+  kable_styling(font_size = 14, full_width = FALSE, bootstrap_options = "striped")
+```
+
+**Túlkun:** Fyrri og seinni mæling eru ekki aðeins mismunandi vegna tilviljunar.
+
+## Niðurstaða 4 — Hvaða umhverfisþættir tengjast mynstrinu? {.smaller}
+
+```{r envfit-table-is}
+fit_tbl_core <- bind_rows(
+  tibble(variable = names(fit_core$vectors$r),
+         r2 = as.numeric(fit_core$vectors$r),
+         p_value = as.numeric(fit_core$vectors$pvals),
+         kind = "samfelld"),
+  if (!is.null(fit_core$factors))
+    tibble(variable = names(fit_core$factors$r),
+           r2 = as.numeric(fit_core$factors$r),
+           p_value = as.numeric(fit_core$factors$pvals),
+           kind = "flokkabreytur")
+) %>%
+  arrange(p_value) %>%
+  mutate(r2 = round(r2, 3), p_value = round(p_value, 3))
+
+fit_tbl_core %>%
+  mutate(variable = dplyr::recode(variable,
+    "háplöntuþekja"    = "háplöntuþekja",
+    "soil_depth"       = "jarðvegsdýpt",
+    "total_cover"      = "heildarþekja",
+    "vegetation_height_1" = "gróðurhæð",
+    "soil_type_name"   = "jarðvegsgerð",
+    "moisture_name"    = "rakastig",
+    "permafrost"       = "frörimi",
+    "topography_name"  = "landslag"
+  )) %>%
+  select(Breyta = variable, `r²` = r2, `p` = p_value, Tegund = kind) %>%
+  kable(align = c("l","r","r","l")) %>%
+  kable_styling(font_size = 13, full_width = FALSE, bootstrap_options = c("striped","hover"))
+```
+
+Sterkustu tengingarnar eru við **háplöntuþekju** og **gróðurhæð**.
+
+## NMDS kort (án 3 strand-útlaga)
+
+```{r nmds-plot-is, fig.height=5}
+ggplot(site_scores, aes(x = NMDS1, y = NMDS2)) +
+  geom_line(aes(group = plot_number), colour = "grey65", linewidth = 0.28, alpha = 0.55) +
+  geom_point(aes(colour = sample, shape = sample), size = 1.9, alpha = 0.82) +
+  geom_segment(
+    data = arrow_df_core,
+    aes(x = 0, y = 0, xend = xend, yend = yend),
+    arrow = arrow(length = unit(0.2, "cm"), type = "closed"),
+    colour = "#c0392b", linewidth = 0.7, inherit.aes = FALSE
+  ) +
+  geom_label_repel(
+    data = arrow_df_core,
+    aes(x = xend * 1.12, y = yend * 1.12, label = variable),
+    size = 3, colour = "#c0392b",
+    fill = alpha("white", 0.8), label.size = 0,
+    max.overlaps = 20, seed = 42, inherit.aes = FALSE
+  ) +
+  scale_colour_manual(values = c(first = col_first, last = col_last),
+                      labels = c(first = "Fyrri", last = "Seinni")) +
+  scale_shape_manual(values = c(first = 16, last = 17),
+                     labels = c(first = "Fyrri", last = "Seinni")) +
+  coord_equal() +
+  labs(colour = NULL, shape = NULL,
+       caption = sprintf("Stress = %.3f · RN-02, RN-03, RN-65-01 teknir út úr NMDS", nmds_core$stress)) +
+  theme_classic(base_size = 12) +
+  theme(legend.position = "bottom")
+```
+
+## Niðurstaða 5 — Svæðisbundin breyting á heildarþekju {.smaller}
+
+```{r cover-by-area-tests-is, cache=FALSE}
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+
+# 1) Reikna breytingu á heildarþekju per reit
+cover_change <- cover_wide %>%
+  mutate(
+    delta_cover = `Seinni mæling` - `Fyrri mæling`
+  )
+
+# 2) Tengja svæði við reiti
+plot_area_lookup <- v_plants_use %>%
+  select(plot_number, area) %>%
+  distinct()
+
+cover_area <- cover_change %>%
+  left_join(plot_area_lookup, by = "plot_number") %>%
+  filter(!is.na(area), !is.na(delta_cover), is.finite(delta_cover))
+
+# 3) Heildarpróf (svæði vs breyting)
+kw <- kruskal.test(delta_cover ~ area, data = cover_area)
+
+chisq_dir <- chisq.test(
+  table(cover_area$area, cover_area$delta_cover > 0),
+  simulate.p.value = TRUE, B = 9999
+)
+
+# 4) Yfirlit per svæði (og síun n >= 5 fyrir stöðugri túlkun)
+area_summary <- cover_area %>%
+  group_by(area) %>%
+  summarise(
+    n_plots = n(),
+    pct_increase = 100 * mean(delta_cover > 0, na.rm = TRUE),
+    median_delta = median(delta_cover, na.rm = TRUE),
+    mean_delta = mean(delta_cover, na.rm = TRUE),
+    q25 = quantile(delta_cover, 0.25, na.rm = TRUE),
+    q75 = quantile(delta_cover, 0.75, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+area_summary_n5 <- area_summary %>%
+  filter(n_plots >= 5) %>%
+  arrange(desc(median_delta))
+
+# 5) Birta prófniðurstöður
+test_tbl <- tibble::tibble(
+  Próf = c("Kruskal-Wallis (stærð breytingar)", "Kí-kvaðrat (stefna breytingar)"),
+  Tölfræði = c(
+    paste0("X² = ", round(unname(kw$statistic), 3), ", df = ", unname(kw$parameter)),
+    paste0("X² = ", round(unname(chisq_dir$statistic), 3), ", simulated p")
+  ),
+  `p-gildi` = c(
+    format.pval(kw$p.value, digits = 3, eps = 1e-4),
+    format.pval(chisq_dir$p.value, digits = 3, eps = 1e-4)
+  )
+)
+
+test_tbl %>%
+  kable(align = c("l", "l", "r")) %>%
+  kable_styling(font_size = 13, full_width = FALSE, bootstrap_options = c("striped", "hover"))
+
+area_summary_n5 %>%
+  mutate(
+    pct_increase = round(pct_increase, 1),
+    median_delta = round(median_delta, 1),
+    mean_delta = round(mean_delta, 1),
+    q25 = round(q25, 1),
+    q75 = round(q75, 1)
+  ) %>%
+  select(
+    Svæði = area,
+    `n reitir` = n_plots,
+    `% aukning` = pct_increase,
+    `Miðgildi Delta þekju` = median_delta,
+    `Meðaltal Delta þekju` = mean_delta,
+    Q25 = q25,
+    Q75 = q75
+  ) %>%
+  kable(align = c("l", "r", "r", "r", "r", "r", "r")) %>%
+  kable_styling(font_size = 12, full_width = TRUE, bootstrap_options = c("striped", "hover"))
+```
+
+- Breyting á heildarþekju er **svæðisbundin**.
+- Bæði **stærð** breytingar og **stefna** (aukning/minnkun) eru marktækt ólík milli svæða.
+- Túlka ber svæði með fáum reitum varlega; taflan hér að ofan sýnir aðeins svæði með `n >= 5`.
+
+## Samantekt {.smaller}
+
+```{r summary-table-is}
+pct_gained <- round(100 * mean(change$delta_S > 0, na.rm = TRUE))
+pct_lost   <- round(100 * mean(change$delta_S < 0, na.rm = TRUE))
+sh_med     <- round(median(change$delta_Shannon, na.rm = TRUE), 3)
+
+tibble(
+  Niðurstaða = c(
+    "Tegundafjöldi",
+    "Shannon fjölbreytni",
+    "Heildarþekja",
+    "Ríkjandi tegundir",
+    "Samsetning samfélaga",
+    "Tölfræðilegt öryggi"
+  ),
+  Túlkun = c(
+    paste0(pct_gained, "% reita með aukningu, ", pct_lost, "% með minnkun"),
+    paste0("Miðgildi breytingar = ", sh_med),
+    "Margar stöðvar sýna breytingu í heildarþekju",
+    "Ríkjandi tegundir eru oft aðrar en áður",
+    paste0("Miðgildi Bray-Curtis = ", med_bc),
+    paste0("PERMANOVA p = 0.001, R² = ", round(perm_strict$R2[1]*100, 1), "%")
+  )
+) %>%
+  kable(align = c("l", "l")) %>%
+  kable_styling(font_size = 13, full_width = TRUE, bootstrap_options = c("striped", "hover"))
+```
+
+## Aðferðir í stuttu máli {.smaller}
+
+| Skref | Lýsing |
+|---|---|
+| Gögn | `v_plants_allt.csv` · `r n_distinct(revisited_2$plot_number)` endurmældir reitir |
+| Þekjusamhæfing | Braun-Blanquet flokkar → miðgildi; tölugildi notuð beint |
+| Pöruð hönnun | Hver reitur borinn saman við sjálfan sig (fyrri vs seinni mæling) |
+| Fjölbreytni | Tegundafjöldi S, Shannon H, Simpson D, Pielou J |
+| Samsetning | Bray-Curtis, NMDS (k=2), pöruð PERMANOVA |
+| Umhverfisaðhvarf | `vegan::envfit` á ströngu breytusetti |
+| Vísbendingategundir | `indicspecies::multipatt` IndVal.g, BH-leiðrétting |
+| Fráteknir reitir | RN-02, RN-03, RN-65-01 teknir út úr NMDS (strandsvæðissamfélög) |
+| Hugbúnaður | R · tidyverse · vegan · indicspecies |
+

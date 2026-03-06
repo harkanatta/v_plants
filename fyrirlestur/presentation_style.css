@@ -1,0 +1,106 @@
+/* ── Base ──────────────────────────────────────────────────────────────── */
+body, p, li {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: #2c3e50;
+}
+
+/* ── Slide titles ──────────────────────────────────────────────────────── */
+.slides > slide > hgroup > h2 {
+  font-size: 32px;
+  font-weight: 600;
+  color: #1a252f;
+  border-bottom: 3px solid #2980b9;
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+}
+
+/* ── Title slide ───────────────────────────────────────────────────────── */
+.title-slide hgroup h1 {
+  font-size: 52px;
+  font-weight: 700;
+  color: #1a252f;
+}
+.title-slide hgroup h2 {
+  font-size: 26px;
+  color: #2980b9;
+  border: none;
+}
+.title-slide p {
+  font-size: 18px;
+  color: hsl(0, 0%, 33%);
+}
+
+/* ── Body text ─────────────────────────────────────────────────────────── */
+.slides > slide p,
+.slides > slide li {
+  font-size: 20px;
+  line-height: 1.55;
+}
+
+/* Smaller-class slides for dense content */
+.slides > slide.smaller p,
+.slides > slide.smaller li {
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+/* ── Blockquotes (callout boxes) ───────────────────────────────────────── */
+blockquote {
+  border-left: 5px solid #2980b9;
+  background: #eaf4fb;
+  padding: 10px 18px;
+  margin: 14px 0;
+  border-radius: 4px;
+  font-size: 19px;
+  color: #1a252f;
+}
+
+/* ── Tables ────────────────────────────────────────────────────────────── */
+table {
+  font-size: 17px;
+  margin: 0 auto;
+}
+.slides > slide.smaller table {
+  font-size: 13px;
+}
+table th, table td {
+  padding: 4px 8px;
+}
+thead tr th {
+  background-color: #2980b9 !important;
+  color: white !important;
+  font-weight: 600;
+}
+tbody tr:nth-child(even) {
+  background-color: #f4f8fb;
+}
+
+/* ── Code ──────────────────────────────────────────────────────────────── */
+code {
+  font-size: 15px;
+  background: #f0f0f0;
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+/* ── Section headers (h3) ──────────────────────────────────────────────── */
+h3 {
+  color: #2980b9;
+  font-size: 24px;
+  margin-top: 10px;
+}
+
+/* ── Caption / footnote text ───────────────────────────────────────────── */
+.caption {
+  font-size: 13px;
+  color: #888;
+}
+
+/* ── Slide footer / progress bar colour ───────────────────────────────── */
+.slide-number {
+  color: #aaa;
+  font-size: 13px;
+}
+slides > slide:not(.nobackground):after {
+  color: #aaa;
+}
