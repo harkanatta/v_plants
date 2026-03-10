@@ -475,20 +475,29 @@ if (!is.null(elev_tbl)) {
 }
 
 vars_driver_strict_final <- c(
-  "háplöntuþekja",
+  #"háplöntuþekja",
   "soil_depth",
-  "total_cover",
-  "vegetation_height_mean",
+  #"total_cover",
+  #"vegetation_height_mean",
   "soil_type_name",
+  #"habitat_type_name",
   "moisture_name",
   "topography_name",
   "permafrost"
 )
-vars_driver_strict_final <- intersect(vars_driver_strict_final, names(env_candidates_ps))
+#vars_driver_strict_final <- intersect(vars_driver_strict_final, names(env_candidates_ps))
+
+# Add extra exploratory vars here (do NOT add to vars_driver_strict_final)
+extra_env_exploratory <- c("habitat_type_name", "grýtniþekja")
 
 env_strict <- env_candidates_ps %>%
-  select(plot_number, sample, all_of(vars_driver_strict_final)) %>%
+  select(
+    plot_number, sample,
+    all_of(vars_driver_strict_final),
+    any_of(extra_env_exploratory)   # included but not used for drop_na()
+  ) %>%
   distinct()
+  
 
 env_strict_cc <- env_strict %>%
   drop_na(all_of(vars_driver_strict_final))

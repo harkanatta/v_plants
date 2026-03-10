@@ -97,13 +97,18 @@ nmds_scores <- as.data.frame(scores(nmds_strict, display = "sites")) %>%
 
 # Build envfit data including gap_years in addition to the strict drivers
 env_all <- meta_strict %>%
-  select(all_of(c(vars_driver_strict_final, "gap_years"))) %>%
+  select(all_of(c(
+    vars_driver_strict_final,        # robust core drivers
+    "gap_years",                     # time gap effect
+    #"habitat_type_name",             # broader habitat grouping
+    "grýtniþekja"                    # exploratory rock cover
+  ))) %>%
   mutate(
     across(where(is.character), as.factor),
     across(where(is.logical),   as.factor)
   )
 
-fit_all <- vegan::envfit(nmds_strict, env_all, permutations = 999)
+fit_all <- vegan::envfit(nmds_strict, env_all, permutations = 999, na.rm=T)
 
 # --- envfit arrows (continuous vectors) ---
 sig_thresh <- 0.05
@@ -193,20 +198,39 @@ vegetation dataset that NMDS places them ~17 units away from the main cloud,
 stretching the axis and making the central cloud unreadable.
 
 ```{r outlier-table}
-# Identify the six rows (first + last) for the three outlier plots
-outlier_plots <- c("RN-02", "RN-03", "RN-65-01")
+# Data‑driven outlier detection on the all‑plots NMDS
+nmds_scores_all <- as.data.frame(scores(nmds_strict, display = "sites")) %>%
+  bind_cols(meta_strict %>% select(plot_number, sample))
+
+# 1) Distance from the NMDS centroid
+centroid <- colMeans(nmds_scores_all[, c("NMDS1", "NMDS2")])
+nmds_scores_all <- nmds_scores_all %>%
+  mutate(dist_center = sqrt((NMDS1 - centroid["NMDS1"])^2 +
+                            (NMDS2 - centroid["NMDS2"])^2))
+
+# 2) Flag plots whose distance is in the top tail (e.g. top 3 plots)
+outlier_plots <- nmds_scores_all %>%
+  arrange(desc(dist_center)) %>%
+  distinct(plot_number, .keep_all = TRUE) %>%
+  slice_head(n = 3) %>%                # or use a threshold on dist_center
+  pull(plot_number)
+
+# Inspect which plots were flagged
+outlier_plots
 
 meta_outliers <- meta_strict %>%
   filter(plot_number %in% outlier_plots) %>%
   select(
     plot_number, sample,
-    háplöntuþekja, soil_depth, total_cover,
+    soil_depth, grýtniþekja,
     any_of(c("vegetation_height_mean", "soil_type_name")),
     moisture_name, topography_name
   )
 
-print_full(meta_outliers,
-           caption = "Metadata for the three outlier plots (both surveys).")
+print_full(
+  meta_outliers,
+  caption = "Metadata for automatically detected outlier plots (both surveys)."
+)
 ```
 
 ```{r taxa-shift-outliers}
@@ -301,6 +325,7 @@ pairs(
   main = sprintf("3D NMDS (k = 3): stress = %.3f", nmds_core_3d$stress)
 )
 ```
+
 For interpretation, we use the **2D NMDS (`nmds_core`) with `fit_core` arrows**
 as the main ordination figure. The arrows show which environmental gradients
 best align with the dominant compositional axes.
@@ -455,6 +480,8 @@ p_nmds_core <- ggplot(site_scores, aes(x = NMDS1, y = NMDS2)) +
 p_nmds_core
 ```
 
+
+Figure X. NMDS ordination of the core dataset (outliers removed) with envfit vectors/centroids for key environmental drivers. Soil depth and soil type show the strongest and highly significant associations with community composition (r² ≈ 0.32–0.35, p = 0.001), followed by moisture class (r² ≈ 0.22, p = 0.001), whereas topography and permafrost have weak, non‑significant fits (r² ≤ 0.02, p ≥ 0.05).
 ---
 
 # Part 3 — Per-plot compositional turnover
@@ -476,8 +503,8 @@ plot_bc <- meta_strict %>%
 
 env_first <- meta_strict %>%
   filter(sample == "first") %>%
-  select(plot_number, any_of("soil_type_name"), moisture_name,
-         háplöntuþekja, soil_depth, any_of("vegetation_height_mean"), total_cover)
+  select(plot_number, any_of("soil_type_name"), any_of("moisture_name"),
+         soil_depth, grýtniþekja)
 
 plot_bc_env <- plot_bc %>%
   left_join(env_first, by = "plot_number")
@@ -498,6 +525,26 @@ bc_summary <- plot_bc_env %>%
 print_full(bc_summary,
            caption = "Per-plot Bray–Curtis distance (first → last) summarised by soil type.")
 ```
+
+```{r bc-summary-table-moisture}
+bc_summary_moist <- plot_bc_env %>%
+group_by(moisture_name) %>%
+summarise(
+n = n(),
+median_bc = round(median(bc_dist, na.rm = TRUE), 3),
+mean_bc = round(mean(bc_dist, na.rm = TRUE), 3),
+sd_bc = round(sd(bc_dist, na.rm = TRUE), 3),
+.groups = "drop"
+) %>%
+arrange(desc(median_bc))
+print_full(
+bc_summary_moist,
+caption = "Per-plot Bray–Curtis distance (first → last) summarised by moisture class."
+)
+```
+
+
+“Summary of per‑plot Bray–Curtis distance between first and last survey across all 160 plots (higher values indicate greater compositional change); shown are sample size (n), median, mean, and standard deviation of Bray–Curtis distances.”
 
 ## 3.2 Kruskal–Wallis tests
 
@@ -528,6 +575,8 @@ print_full(kw_tbl,
            caption = "Kruskal–Wallis: does soil type / moisture predict magnitude of compositional change?")
 ```
 
+update table caption
+
 ```{r kw-followup, results='asis'}
 if (!is.null(kw_soil) && kw_soil$p.value < 0.05) {
   cat("> **Soil type is significant (p < 0.05).** Consider a post-hoc Dunn test:\n")
@@ -542,9 +591,16 @@ if (kw_moist$p.value < 0.05) {
 ## 3.3 Boxplot by soil type
 
 ```{r bc-boxplot, fig.cap="Per-plot Bray–Curtis distance (first → last survey) by soil type. Points are individual plots."}
+plot_bc_soil <- plot_bc_env %>%
+  dplyr::filter(!is.na(soil_type_name))
+
+# Inspect
+dplyr::glimpse(plot_bc_soil)
+dplyr::count(plot_bc_soil, soil_type_name)
+summary(plot_bc_soil$bc_dist)
 if ("soil_type_name" %in% names(plot_bc_env)) {
-  ggplot(
-    plot_bc_env %>% filter(!is.na(soil_type_name)),
+  p_bc_soil <- ggplot(
+    plot_bc_soil,
     aes(x = reorder(soil_type_name, bc_dist, FUN = median),
         y = bc_dist, fill = soil_type_name)
   ) +
@@ -559,11 +615,96 @@ if ("soil_type_name" %in% names(plot_bc_env)) {
     theme(axis.text.x = element_text(angle = 35, hjust = 1),
           legend.position = "none")
 } else {
-  ggplot() +
+  p_bc_soil <- ggplot() +
     theme_void() +
     ggtitle("Soil type not available in meta_strict / plot_bc_env")
 }
+
+p_bc_soil
 ```
+Per‑plot Bray–Curtis distance (first → last survey) by soil type for 159 revisited plots. Boxes show median and interquartile range of compositional change within each soil type (Leirujörð, Lífræn jörð, Klapparjörð, Áfoksjörð, Melajörð, Sandjörð, Eyrarjörð), with individual plots as points; overall, turnover is substantial (median ≈ 0.61, mean ≈ 0.58, range 0.16–1.00), and some soil types (e.g. Áfoksjörð, Klapparjörð, Sandjörð) exhibit higher typical change than others (e.g. Leirujörð).
+
+```{r pca-turnover-drivers, fig.height=6, fig.width=8}
+
+
+bc_matrix <- as.matrix(vegdist(mat_strict, method = "bray"))
+plot_bc <- meta_strict %>%
+mutate(row_idx = dplyr::row_number()) %>%
+dplyr::group_by(plot_number) %>%
+dplyr::summarise(
+idx_first = row_idx[sample == "first"],
+idx_last = row_idx[sample == "last"],
+.groups = "drop"
+) %>%
+dplyr::mutate(bc_dist = purrr::map2_dbl(idx_first, idx_last, ~ bc_matrix[.x, .y]))
+
+env_first_pca <- meta_strict %>%
+dplyr::filter(sample == "first") %>%
+dplyr::select(
+plot_number,
+háplöntuþekja,
+vegetation_height_mean,
+total_cover,
+soil_depth
+)
+pca_dat <- plot_bc %>%
+dplyr::left_join(env_first_pca, by = "plot_number") %>%
+dplyr::filter(stats::complete.cases(háplöntuþekja, vegetation_height_mean,
+total_cover, soil_depth))
+
+pca_env <- prcomp(
+pca_dat %>%
+dplyr::select(háplöntuþekja, vegetation_height_mean, total_cover, soil_depth),
+center = TRUE,
+scale. = TRUE
+)
+pca_scores <- as.data.frame(pca_env$x) %>%
+dplyr::mutate(
+plot_number = pca_dat$plot_number,
+bc_dist = pca_dat$bc_dist
+)
+pca_loadings <- as.data.frame(pca_env$rotation) %>%
+tibble::rownames_to_column("variable")
+
+var_expl <- 100 * (pca_env$sdev^2) / sum(pca_env$sdev^2)
+ggplot(pca_scores, aes(x = PC1, y = PC2, colour = bc_dist)) +
+geom_point(size = 2, alpha = 0.85) +
+scale_colour_viridis_c(option = "C", name = "Bray–Curtis\n(first → last)") +
+geom_segment(
+data = pca_loadings,
+aes(x = 0, y = 0, xend = PC1 * 2.5, yend = PC2 * 2.5),
+arrow = arrow(length = unit(0.2, "cm")),
+inherit.aes = FALSE,
+colour = "#c0392b",
+linewidth = 0.7
+) +
+geom_label_repel(
+data = pca_loadings,
+aes(x = PC1 * 2.7, y = PC2 * 2.7, label = variable),
+inherit.aes = FALSE,
+size = 3,
+colour = "#c0392b",
+fill = alpha("white", 0.8),
+label.size = 0,
+max.overlaps = 15,
+seed = 44
+) +
+labs(
+title = "PCA of environmental drivers (first survey)",
+subtitle = sprintf("PC1: %.1f%%, PC2: %.1f%% of variance",
+var_expl[1], var_expl[2]),
+x = "PC1",
+y = "PC2"
+) +
+theme_classic(base_size = 11) +
+theme(
+legend.position = "right",
+plot.subtitle = element_text(size = 8, colour = "grey40")
+)
+
+```
+Principal components analysis of first‑survey environmental drivers (háplöntuþekja, vegetation_height_mean, total_cover, soil_depth) for the 159 core plots; points are plots positioned by PC1 and PC2, coloured by their Bray–Curtis compositional change (first → last), and red arrows show variable loadings (PC1 explaining 62.8% and PC2 16.9% of total variance).
+
 
 ---
 
@@ -613,6 +754,8 @@ print_full(
   caption = "Indicator taxa (IndVal.g, FDR ≤ 5%). 'first' = associated with first survey; 'last' = last survey."
 )
 ```
+
+Indicator species (IndVal.g) for first vs last survey based on the core inland dataset. Columns show the taxon name, its association with first (s.1) and last (s.2) surveys, the group it favors (1 = first, 2 = last), IndVal statistic (stat), raw p‑value (p.value), survey group label, and Benjamini–Hochberg FDR‑adjusted p‑value (p_adj); all taxa listed here are significant at FDR ≤ 5%.
 
 ## 4.2 Top 15 per survey — bar chart
 

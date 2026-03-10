@@ -58,7 +58,7 @@ x,habitat_type_name
 ,position_width
 ,subplot_number
 ,soil_type_id
-,soil_type_name
+x,soil_type_name
 x,stone_class
 x,permafrost
 ,subplot_nitrogen
