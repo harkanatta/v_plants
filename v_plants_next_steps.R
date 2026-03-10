@@ -5,15 +5,16 @@
 ##          univariate follow-up for the strongest environmental drivers
 ##          identified in v_plants_variable_screening.html
 ##
-## Assumes the following objects are already in your environment (source the
-## screening script first, or re-run the data-loading blocks from it):
+## Assumes the following objects are already in your environment (source
+## `v_plants_prep.R` first; `v_plants_variable_screening.Rmd` is an audit trail
+## describing how these were chosen, but does not need to be sourced):
 ##   community_long_paired  – long-format cover table (plot × sample × taxon)
 ##   community_wide_strict  – wide-format community matrix with plot/sample cols
 ##   meta_strict            – metadata aligned to community_wide_strict
-##   mat_strict             – numeric species matrix (rows = 318, cols = 747)
+##   mat_strict             – numeric species matrix (rows = nrow(mat_strict))
 ##   nmds_strict            – metaMDS result on mat_strict
 ##   fit_strict             – envfit result on nmds_strict
-##   vars_driver_strict_final, driver_final – variable vectors from screening
+##   vars_driver_strict_final, driver_final – variable vectors from prep/screening
 ## =============================================================================
 
 library(tidyverse)
@@ -124,7 +125,8 @@ p_nmds <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2)) +
   labs(
     title   = "NMDS of plant community composition (Bray–Curtis)",
     subtitle = sprintf(
-      "167 revisited plots · stress = %.3f · paired PERMANOVA R² = 2.7%%, p = 0.001",
+      "%d revisited plots · stress = %.3f · paired PERMANOVA R² = 2.7%%, p = 0.001",
+      length(unique(nmds_scores$plot_number)),
       nmds_strict$stress
     ),
     x = "NMDS1", y = "NMDS2",
@@ -161,63 +163,84 @@ plot_bc <- meta_strict %>%
 # 2b. Attach environmental metadata (from first survey for context)
 env_first <- meta_strict %>%
   filter(sample == "first") %>%
-  select(plot_number, soil_type_name, moisture_name,
-         háplöntuþekja, soil_depth, vegetation_height_1, total_cover)
+  select(
+    plot_number,
+    any_of("soil_type_name"),
+    moisture_name,
+    háplöntuþekja,
+    soil_depth,
+    any_of("vegetation_height_mean"),
+    total_cover
+  )
 
 plot_bc_env <- plot_bc %>%
   left_join(env_first, by = "plot_number")
 
-# 2c. Summary: median Bray–Curtis by soil type
-plot_bc_env %>%
-  group_by(soil_type_name) %>%
-  summarise(
-    n           = n(),
-    median_bc   = median(bc_dist, na.rm = TRUE),
-    mean_bc     = mean(bc_dist, na.rm = TRUE),
-    .groups     = "drop"
-  ) %>%
-  arrange(desc(median_bc)) %>%
-  print()
+# 2c. Summary: median Bray–Curtis by soil type (if available)
+if ("soil_type_name" %in% names(plot_bc_env)) {
+  plot_bc_env %>%
+    group_by(soil_type_name) %>%
+    summarise(
+      n           = n(),
+      median_bc   = median(bc_dist, na.rm = TRUE),
+      mean_bc     = mean(bc_dist, na.rm = TRUE),
+      .groups     = "drop"
+    ) %>%
+    arrange(desc(median_bc)) %>%
+    print()
+} else {
+  message("Soil type not available in plot_bc_env; skipping soil-type summary.")
+}
 
-# 2d. Kruskal–Wallis: does soil type predict magnitude of change?
-kw_soil <- kruskal.test(bc_dist ~ soil_type_name, data = plot_bc_env)
+# 2d. Kruskal–Wallis: does soil type / moisture predict magnitude of change?
+if ("soil_type_name" %in% names(plot_bc_env)) {
+  kw_soil <- kruskal.test(bc_dist ~ soil_type_name, data = plot_bc_env)
+  message(sprintf(
+    "Kruskal–Wallis soil type:  χ²=%.2f, df=%d, p=%.4f",
+    kw_soil$statistic, kw_soil$parameter, kw_soil$p.value
+  ))
+} else {
+  kw_soil <- NULL
+}
+
 kw_moist <- kruskal.test(bc_dist ~ moisture_name, data = plot_bc_env)
-
-message(sprintf(
-  "Kruskal–Wallis soil type:  χ²=%.2f, df=%d, p=%.4f",
-  kw_soil$statistic, kw_soil$parameter, kw_soil$p.value
-))
 message(sprintf(
   "Kruskal–Wallis moisture:   χ²=%.2f, df=%d, p=%.4f",
   kw_moist$statistic, kw_moist$parameter, kw_moist$p.value
 ))
 
 # NOTE: if soil-type p < 0.05, follow up with Dunn test (dunn.test package)
-# dunn.test::dunn.test(plot_bc_env$bc_dist, plot_bc_env$soil_type_name, method = "bh")
+# if (!is.null(kw_soil) && kw_soil$p.value < 0.05) {
+#   dunn.test::dunn.test(plot_bc_env$bc_dist, plot_bc_env$soil_type_name, method = "bh")
+# }
 
-# 2e. Boxplot: per-plot BC distance by soil type
-p_bc_soil <- ggplot(
-  plot_bc_env %>% filter(!is.na(soil_type_name)),
-  aes(x = reorder(soil_type_name, bc_dist, FUN = median),
-      y = bc_dist, fill = soil_type_name)
-) +
-  geom_boxplot(alpha = 0.7, outlier.size = 1.2) +
-  geom_jitter(width = 0.15, alpha = 0.4, size = 1) +
-  labs(
-    title = "Compositional turnover by soil type",
-    subtitle = "Per-plot Bray–Curtis distance (first → last survey)",
-    x = "Soil type", y = "Bray–Curtis distance",
-    fill = NULL
+# 2e. Boxplot: per-plot BC distance by soil type (if available)
+if ("soil_type_name" %in% names(plot_bc_env)) {
+  p_bc_soil <- ggplot(
+    plot_bc_env %>% filter(!is.na(soil_type_name)),
+    aes(x = reorder(soil_type_name, bc_dist, FUN = median),
+        y = bc_dist, fill = soil_type_name)
   ) +
-  theme_classic(base_size = 11) +
-  theme(
-    axis.text.x  = element_text(angle = 35, hjust = 1),
-    legend.position = "none"
-  )
+    geom_boxplot(alpha = 0.7, outlier.size = 1.2) +
+    geom_jitter(width = 0.15, alpha = 0.4, size = 1) +
+    labs(
+      title = "Compositional turnover by soil type",
+      subtitle = "Per-plot Bray–Curtis distance (first → last survey)",
+      x = "Soil type", y = "Bray–Curtis distance",
+      fill = NULL
+    ) +
+    theme_classic(base_size = 11) +
+    theme(
+      axis.text.x  = element_text(angle = 35, hjust = 1),
+      legend.position = "none"
+    )
 
-# ggsave("fig_bc_by_soil.pdf", p_bc_soil, width = 8, height = 5)
-ggsave("fig_bc_by_soil.png", p_bc_soil, width = 8, height = 5, dpi = 300)
-message("Saved: fig_bc_by_soil.png")
+  # ggsave("fig_bc_by_soil.pdf", p_bc_soil, width = 8, height = 5)
+  ggsave("fig_bc_by_soil.png", p_bc_soil, width = 8, height = 5, dpi = 300)
+  message("Saved: fig_bc_by_soil.png")
+} else {
+  message("Soil type not available; skipping fig_bc_by_soil.png.")
+}
 
 
 ## ── SECTION 3 ─────────────────────────────────────────────────────────────────

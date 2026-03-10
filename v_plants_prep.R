@@ -247,6 +247,29 @@ meta <- community_wide %>% select(plot_number, sample)
 mat <- community_wide %>% select(-plot_number, -sample) %>% as.matrix()
 
 # ------------------------------------------------------------------------------
+# 2a) Per-plot Bray–Curtis distance (first vs last) + gap in years
+# ------------------------------------------------------------------------------
+bc_per_plot <- community_wide %>%
+  group_by(plot_number) %>%
+  summarise(
+    bc = {
+      mat2 <- pick(where(is.numeric)) %>% as.matrix()
+      if (nrow(mat2) == 2) {
+        as.numeric(vegan::vegdist(mat2, method = "bray")[1])
+      } else {
+        NA_real_
+      }
+    },
+    .groups = "drop"
+  )
+
+gap_tbl <- plot_years %>%
+  transmute(plot_number, gap_years = year_last - year_first)
+
+bc_with_gap <- bc_per_plot %>%
+  left_join(gap_tbl, by = "plot_number")
+
+# ------------------------------------------------------------------------------
 # 2b) Plot-level diversity with and without outside-subplot records (optional)
 # ------------------------------------------------------------------------------
 build_diversity_py <- function(dat) {
@@ -416,7 +439,40 @@ env_candidates_ps <- paired_long %>%
     across(all_of(vars_env_numeric), ~ if (all(is.na(.x))) NA_real_ else mean(.x, na.rm = TRUE)),
     across(all_of(vars_env_factor), ~ mode_value(as.character(.x))),
     .groups = "drop"
+  ) %>%
+  left_join(gap_tbl, by = "plot_number")
+
+# Optional: elevation from gpkg (used for bc_enriched and for meta_strict when available)
+elev_tbl <- NULL
+if (requireNamespace("sf", quietly = TRUE)) {
+  gpkg_candidates <- c(
+    file.path(base_dir, "outputs", "qgis_share", "snid_with_elevation.gpkg"),
+    file.path(base_dir, "gagnagrunnurNI", "outputs", "qgis_share", "snid_with_elevation.gpkg")
   )
+  gpkg_path <- gpkg_candidates[file.exists(gpkg_candidates)][1]
+  if (!is.na(gpkg_path)) {
+    snid_elev <- sf::st_read(gpkg_path, quiet = TRUE)
+    elev_tbl <- snid_elev %>%
+      sf::st_drop_geometry() %>%
+      group_by(plot_number) %>%
+      summarise(haeddypimetrar = first(haeddypimetrar), .groups = "drop")
+    env_first <- env_candidates_ps %>%
+      filter(sample == "first") %>%
+      select(plot_number, moisture_name, habitat_type_name, topography_name, permafrost) %>%
+      distinct()
+    bc_enriched <- bc_with_gap %>%
+      left_join(env_first, by = "plot_number") %>%
+      left_join(elev_tbl, by = "plot_number")
+  } else {
+    bc_enriched <- NULL
+  }
+} else {
+  bc_enriched <- NULL
+}
+if (!is.null(elev_tbl)) {
+  env_candidates_ps <- env_candidates_ps %>%
+    left_join(elev_tbl, by = "plot_number")
+}
 
 vars_driver_strict_final <- c(
   "háplöntuþekja",
@@ -447,7 +503,12 @@ community_wide_strict <- community_wide %>%
 
 meta_strict <- community_wide_strict %>%
   select(plot_number, sample) %>%
-  left_join(env_strict_cc, by = c("plot_number", "sample"))
+  left_join(env_strict_cc, by = c("plot_number", "sample")) %>%
+  left_join(gap_tbl, by = "plot_number")
+if (!is.null(elev_tbl)) {
+  meta_strict <- meta_strict %>%
+    left_join(elev_tbl, by = "plot_number")
+}
 
 mat_strict <- community_wide_strict %>%
   select(-plot_number, -sample) %>%
