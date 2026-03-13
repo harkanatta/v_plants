@@ -184,6 +184,47 @@ v_plants2 <- v_plants_raw_main %>%
 v_plants_use <- v_plants2 %>%
   select(-any_of(vars_exclude_strict))
 
+# Optional: elevation from gpkg — load once for v_plants_use and later for env/meta
+elev_tbl <- NULL
+if (requireNamespace("sf", quietly = TRUE)) {
+  gpkg_candidates <- c(
+    file.path(base_dir, "outputs", "qgis_share", "snid_with_elevation.gpkg"),
+    file.path(base_dir, "gagnagrunnurNI", "outputs", "qgis_share", "snid_with_elevation.gpkg")
+  )
+  gpkg_path <- gpkg_candidates[file.exists(gpkg_candidates)][1]
+  if (!is.na(gpkg_path)) {
+    snid_elev <- sf::st_read(gpkg_path, quiet = TRUE)
+    elev_tbl <- snid_elev %>%
+      sf::st_drop_geometry() %>%
+      group_by(plot_number) %>%
+      summarise(haeddypimetrar = first(haeddypimetrar), .groups = "drop")
+  }
+}
+if (!is.null(elev_tbl)) {
+  v_plants_use <- v_plants_use %>%
+    left_join(elev_tbl, by = "plot_number")
+}
+
+# Optional: table from QGIS (CSV) — NA/NULL replaced with 0, joined to v_plants_use and env/meta
+my_table_path <- file.path(base_dir, "outputs", "qgis_share", "my_table.csv")
+my_table <- NULL
+if (file.exists(my_table_path)) {
+  my_table <- readr::read_csv(
+    my_table_path,
+    show_col_types = FALSE,
+    na = c("", "NA", "NULL")
+  ) %>%
+    mutate(
+      across(where(is.numeric), ~ replace_na(.x, 0)),
+      across(where(is.character), ~ replace_na(.x, ""))
+    )
+  if ("plot_number" %in% names(my_table)) {
+    my_table <- my_table %>% distinct(plot_number, .keep_all = TRUE)
+    v_plants_use <- v_plants_use %>%
+      left_join(my_table, by = "plot_number")
+  }
+}
+
 # ------------------------------------------------------------------------------
 # 2) Paired design + community matrix
 # ------------------------------------------------------------------------------
@@ -443,36 +484,23 @@ env_candidates_ps <- paired_long %>%
   ) %>%
   left_join(gap_tbl, by = "plot_number")
 
-# Optional: elevation from gpkg (used for bc_enriched and for meta_strict when available)
-elev_tbl <- NULL
-if (requireNamespace("sf", quietly = TRUE)) {
-  gpkg_candidates <- c(
-    file.path(base_dir, "outputs", "qgis_share", "snid_with_elevation.gpkg"),
-    file.path(base_dir, "gagnagrunnurNI", "outputs", "qgis_share", "snid_with_elevation.gpkg")
-  )
-  gpkg_path <- gpkg_candidates[file.exists(gpkg_candidates)][1]
-  if (!is.na(gpkg_path)) {
-    snid_elev <- sf::st_read(gpkg_path, quiet = TRUE)
-    elev_tbl <- snid_elev %>%
-      sf::st_drop_geometry() %>%
-      group_by(plot_number) %>%
-      summarise(haeddypimetrar = first(haeddypimetrar), .groups = "drop")
-    env_first <- env_candidates_ps %>%
-      filter(sample == "first") %>%
-      select(plot_number, moisture_name, habitat_type_name, topography_name, permafrost) %>%
-      distinct()
-    bc_enriched <- bc_with_gap %>%
-      left_join(env_first, by = "plot_number") %>%
-      left_join(elev_tbl, by = "plot_number")
-  } else {
-    bc_enriched <- NULL
-  }
+# Elevation already in elev_tbl (loaded earlier). Use for bc_enriched and env/meta joins.
+if (!is.null(elev_tbl)) {
+  env_first <- env_candidates_ps %>%
+    filter(sample == "first") %>%
+    select(plot_number, moisture_name, habitat_type_name, topography_name, permafrost) %>%
+    distinct()
+  bc_enriched <- bc_with_gap %>%
+    left_join(env_first, by = "plot_number") %>%
+    left_join(elev_tbl, by = "plot_number")
+  env_candidates_ps <- env_candidates_ps %>%
+    left_join(elev_tbl, by = "plot_number")
 } else {
   bc_enriched <- NULL
 }
-if (!is.null(elev_tbl)) {
+if (!is.null(my_table) && "plot_number" %in% names(my_table)) {
   env_candidates_ps <- env_candidates_ps %>%
-    left_join(elev_tbl, by = "plot_number")
+    left_join(my_table, by = "plot_number")
 }
 
 vars_driver_strict_final <- c(
@@ -518,6 +546,10 @@ meta_strict <- community_wide_strict %>%
 if (!is.null(elev_tbl)) {
   meta_strict <- meta_strict %>%
     left_join(elev_tbl, by = "plot_number")
+}
+if (!is.null(my_table) && "plot_number" %in% names(my_table)) {
+  meta_strict <- meta_strict %>%
+    left_join(my_table, by = "plot_number")
 }
 
 mat_strict <- community_wide_strict %>%
