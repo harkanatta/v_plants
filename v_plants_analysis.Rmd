@@ -157,7 +157,7 @@ arrow_df_all <- arrow_df_all %>%
   mutate(xend = NMDS1 * ordi_radius_all,
          yend = NMDS2 * ordi_radius_all)
 
-ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2)) +
+pnmds <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2)) +
   geom_line(aes(group = plot_number),
             colour = "grey70", linewidth = 0.3, alpha = 0.6) +
   geom_point(aes(colour = sample, shape = sample),
@@ -303,7 +303,7 @@ if (s > 0.20) {
 
 ### 2.1b Optional: 3D NMDS (diagnostic)
 
-```{r nmds-core-3d, cache=TRUE, fig.height=6, fig.width=6, fig.cap="3D NMDS (k = 3): pairwise site scores for the core dataset."}
+```{r nmds-core-3d, eval=FALSE, fig.cap="3D NMDS (k = 3): pairwise site scores for the core dataset.", fig.height=6, fig.width=6, cache=TRUE, include=FALSE}
 # 3D NMDS to check whether a higher-dimensional solution improves stress
 nmds_core_3d <- metaMDS(
   mat_core,
@@ -477,11 +477,262 @@ p_nmds_core <- ggplot(site_scores, aes(x = NMDS1, y = NMDS2)) +
     plot.caption    = element_text(size = 7.5, colour = "grey50", hjust = 0)
   )
 
-p_nmds_core
+
+ggsave("outputs/p_nmds_core.png",
+         plot = p_nmds_core,
+         width  = 16,   # cm — square-ish canvas to match coord_equal() panel
+         height = 17,   # cm — extra height for title + legend + caption
+         units  = "cm",
+         dpi    = 300,
+         bg     = "white")
+
 ```
 
 
 Figure X. NMDS ordination of the core dataset (outliers removed) with envfit vectors/centroids for key environmental drivers. Soil depth and soil type show the strongest and highly significant associations with community composition (r² ≈ 0.32–0.35, p = 0.001), followed by moisture class (r² ≈ 0.22, p = 0.001), whereas topography and permafrost have weak, non‑significant fits (r² ≤ 0.02, p ≥ 0.05).
+
+## 2.4 Trajectory plot: per-plot arrows, survey ellipses, dominant species
+
+Three additions derived from the marine benthos analysis pipeline:
+- **Directed arrows** (first → last) replace undirected grey lines, making direction
+  and magnitude of per-plot change readable directly from the ordination.
+- **70% normal ellipses** delimit the first- and last-survey community clouds,
+  showing whether the two survey groups overlap or have separated in ordination space.
+- **Dominant species labels** (>1% relative abundance in `mat_core`) overlay the
+  biplot, making the axes interpretable without consulting a separate species table.
+
+```{r nmds-trajectory, fig.height=8, fig.cap=sprintf("NMDS trajectory plot (%d core plots). Arrows: per-plot shift from first to last survey, coloured by soil type. Ellipses (70%% normal): first (dashed) and last (solid) survey community clouds. Italic labels: taxa > 1%% relative abundance in the core matrix.", nrow(traj_wide))}
+
+# --- Per-plot arrow data: pivot site scores to wide ---
+traj_wide <- as.data.frame(scores(nmds_core, display = "sites")) %>%
+  bind_cols(meta_core %>% select(plot_number, sample)) %>%
+  pivot_wider(
+    names_from  = sample,
+    values_from = c(NMDS1, NMDS2),
+    names_sep   = "_"
+  ) %>%
+  left_join(
+    meta_core %>% filter(sample == "first") %>% select(plot_number, soil_type_name),
+    by = "plot_number"
+  ) %>%
+  filter(complete.cases(NMDS1_first, NMDS2_first, NMDS1_last, NMDS2_last))
+
+# --- Dominant species scores (>1% relative abundance in mat_core) ---
+rel_abund     <- colSums(mat_core) / sum(mat_core)
+dominant_spp  <- names(rel_abund[rel_abund > 0.01])
+
+sp_scores_dom <- as.data.frame(scores(nmds_core, display = "species")) %>%
+  rownames_to_column("taxon") %>%
+  filter(taxon %in% dominant_spp)
+
+# --- Survey-group scores (for ellipses) ---
+survey_scores <- as.data.frame(scores(nmds_core, display = "sites")) %>%
+  bind_cols(meta_core %>% select(sample))
+
+# --- Plot ---
+p_nmds_traj <-  ggplot() +
+  # Survey-group ellipses (70% normal): dashed = first, solid = last
+  stat_ellipse(
+    data      = survey_scores,
+    aes(x = NMDS1, y = NMDS2, group = sample, linetype = sample),
+    type      = "norm", level = 0.70,
+    colour    = "grey45", linewidth = 0.55
+  ) +
+  # Per-plot trajectory arrows (first → last)
+  geom_segment(
+    data = traj_wide,
+    aes(x = NMDS1_first, y = NMDS2_first,
+        xend = NMDS1_last, yend = NMDS2_last,
+        colour = soil_type_name),
+    arrow     = arrow(length = unit(0.18, "cm"), type = "closed"),
+    linewidth = 0.45, alpha = 0.70
+  ) +
+  # Dominant species labels
+  geom_text_repel(
+    data = sp_scores_dom,
+    aes(x = NMDS1, y = NMDS2, label = taxon),
+    size = 2.5, colour = "grey20", fontface = "italic",
+    max.overlaps = 30, seed = 55
+  ) +
+  scale_linetype_manual(
+    values = c(first = "dashed", last = "solid"),
+    labels = c(first = "First survey", last = "Last survey")
+  ) +
+  coord_equal() +
+  labs(
+    title    = "NMDS — per-plot compositional trajectories (first → last)",
+    subtitle = sprintf("%d plots · Bray–Curtis · stress = %.3f",
+                       nrow(traj_wide), nmds_core$stress),
+    x        = "NMDS1",
+    y        = "NMDS2",
+    colour   = "Soil type",
+    linetype = "Survey ellipse",
+    caption  = paste(
+      "Arrows: first → last survey per plot, coloured by soil type (from first survey).",
+      "Dashed/solid ellipses (70% normal): first/last survey community clouds.",
+      "Italic text: taxa > 1% relative abundance in the core matrix.",
+      sep = "\n"
+    )
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    legend.position = "bottom",
+    legend.box      = "vertical",
+    plot.subtitle   = element_text(size = 8,   colour = "grey40"),
+    plot.caption    = element_text(size = 7.5, colour = "grey50", hjust = 0)
+  )
+
+
+
+ggsave("outputs/p_nmds_trajectory.png",
+       plot   = p_nmds_traj,
+       width  = 16,   # cm — square-ish canvas to match coord_equal() panel
+       height = 19,   # cm — extra height for stacked legend (soil type + ellipse)
+       units  = "cm",
+       dpi    = 300,
+       bg     = "white")
+```
+
+## 2.5 PCA: first-survey environmental drivers vs. trajectory displacement
+
+PCA of numeric first-survey predictors, with points coloured by per-plot NMDS
+displacement (arrow length from Section 2.4). If plots with large displacements
+cluster at one end of a principal component, the loading of that component
+identifies the environmental variables that predict greater compositional change
+between surveys.
+
+```{r traj-pca, fig.height=7, fig.width=8, fig.cap="PCA of first-survey environmental predictors for 158 core plots. Points are coloured by per-plot NMDS displacement (first → last survey). Red arrows show variable loadings; length reflects contribution to the principal axes. A gradient in displacement colour along a loading arrow indicates that variable predicts the magnitude of compositional change."}
+
+# --- Build analysis table: first-survey env vars + trajectory metrics ---
+# Only numeric columns that survive the prep pipeline into meta_core.
+# háplöntuþekja / total_cover / vegetation_height_mean were commented out of
+# vars_driver_strict_final and are not present in meta_strict/meta_core.
+pca_vars_candidate <- c("soil_depth", "gap_years", "elevation","vegetation_height_mean", "total_cover")# "grýtniþekja")
+pca_vars <- intersect(pca_vars_candidate, names(meta_core))
+#pca_vars <- names(meta_core)
+
+env_traj <- meta_core %>%
+  filter(sample == "first") %>%
+  select(plot_number, any_of(pca_vars)) %>%
+  inner_join(
+    traj_wide %>%
+      mutate(
+        arrow_length = sqrt((NMDS1_last - NMDS1_first)^2 +
+                            (NMDS2_last - NMDS2_first)^2),
+        dNMDS1 = NMDS1_last - NMDS1_first,
+        dNMDS2 = NMDS2_last - NMDS2_first
+      ) %>%
+      select(plot_number, arrow_length, dNMDS1, dNMDS2),
+    by = "plot_number"
+  ) %>%
+  filter(complete.cases(.))
+
+# --- PCA on environmental predictors only ---
+pca_traj <- prcomp(
+  env_traj %>% select(any_of(pca_vars)),
+  center = TRUE,
+  scale. = TRUE
+)
+
+pca_scores <- as.data.frame(pca_traj$x) %>%
+  mutate(
+    plot_number  = env_traj$plot_number,
+    arrow_length = env_traj$arrow_length,
+    dNMDS1       = env_traj$dNMDS1,
+    dNMDS2       = env_traj$dNMDS2
+  )
+
+pca_loadings <- as.data.frame(pca_traj$rotation) %>%
+  rownames_to_column("variable")
+
+var_expl <- 100 * (pca_traj$sdev^2) / sum(pca_traj$sdev^2)
+
+# Scaling factor so arrows fill ~2/3 of the point cloud
+scale_factor <- max(abs(pca_scores[, c("PC1", "PC2")])) * 0.65
+
+ppca_scores <- ggplot(pca_scores, aes(x = PC1, y = PC2, colour = arrow_length)) +
+  geom_point(size = 2.0, alpha = 0.85) +
+  scale_colour_viridis_c(
+    option = "C",
+    name   = "NMDS\ndisplacement"
+  ) +
+  geom_segment(
+    data = pca_loadings,
+    aes(x = 0, y = 0,
+        xend = PC1 * scale_factor,
+        yend = PC2 * scale_factor),
+    arrow      = arrow(length = unit(0.20, "cm"), type = "closed"),
+    inherit.aes = FALSE,
+    colour     = "#c0392b",
+    linewidth  = 0.70
+  ) +
+  geom_label_repel(
+    data = pca_loadings,
+    aes(x = PC1 * scale_factor * 1.12,
+        y = PC2 * scale_factor * 1.12,
+        label = variable),
+    inherit.aes  = FALSE,
+    size         = 3.0,
+    colour       = "#c0392b",
+    fill         = alpha("white", 0.80),
+    label.size   = 0,
+    max.overlaps = 15,
+    seed         = 44
+  ) +
+  coord_equal() +
+  labs(
+    title    = "PCA — first-survey environmental drivers",
+    subtitle = sprintf(
+      "PC1: %.1f%%  ·  PC2: %.1f%%  ·  n = %d plots with complete predictors",
+      var_expl[1], var_expl[2], nrow(env_traj)
+    ),
+    x       = sprintf("PC1 (%.1f%%)", var_expl[1]),
+    y       = sprintf("PC2 (%.1f%%)", var_expl[2]),
+    caption = paste(
+      "Points: plots, coloured by NMDS displacement (first → last).",
+      "Red arrows: variable loadings (scaled to 65% of plot radius).",
+      sep = "\n"
+    )
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    legend.position = "right",
+    plot.subtitle   = element_text(size = 8,   colour = "grey40"),
+    plot.caption    = element_text(size = 7.5, colour = "grey50", hjust = 0)
+  )
+ggsave("outputs/ppca_scores.png",
+       plot   = ppca_scores,
+       width  = 16,   # cm — square-ish canvas to match coord_equal() panel
+       height = 19,   # cm — extra height for stacked legend (soil type + ellipse)
+       units  = "cm",
+       dpi    = 300,
+       bg     = "white")
+```
+```
+
+```{r traj-pca-cortable}
+# Pearson correlations between PC scores and displacement metrics
+cor_tbl <- bind_rows(
+  lapply(c("PC1", "PC2", "PC3"), function(pc) {
+    tibble(
+      PC           = pc,
+      arrow_length = cor(pca_scores[[pc]], pca_scores$arrow_length,
+                         use = "complete.obs"),
+      dNMDS1       = cor(pca_scores[[pc]], pca_scores$dNMDS1,
+                         use = "complete.obs"),
+      dNMDS2       = cor(pca_scores[[pc]], pca_scores$dNMDS2,
+                         use = "complete.obs")
+    )
+  })
+) %>%
+  mutate(across(where(is.numeric), round, 3))
+
+print_full(
+  cor_tbl,
+  caption = "Pearson r between PC scores and trajectory displacement metrics. arrow_length: magnitude of NMDS shift; dNMDS1/dNMDS2: directional components."
+)
+```
+
 ---
 
 # Part 3 — Per-plot compositional turnover
@@ -525,6 +776,12 @@ bc_summary <- plot_bc_env %>%
 print_full(bc_summary,
            caption = "Per-plot Bray–Curtis distance (first → last) summarised by soil type.")
 ```
+
+Table X. How much the plant community in each plot changed between the first and last survey, broken down by soil type. The number used to measure change is the Bray–Curtis distance — a score from 0 (the plant community was identical at both time points) to 1 (the two communities shared no species at all). One score is calculated per plot, and the table shows the middle value (median), average (mean), and spread (standard deviation, SD) of those scores for all plots sharing a soil type. Soil types are ordered from most to least change.
+
+Results paragraph
+The degree to which individual plot communities changed between surveys varied considerably by soil type (Table X). Plots on eyrarjörð (riparian soil) showed the greatest turnover, with a median Bray–Curtis dissimilarity (the proportion of species composition that changed, on a scale from 0 to 1) of 0.759, meaning that on average roughly three-quarters of the weighted species composition was replaced over the survey interval. Sandjörð (sandy soil) and melajörð (gravel soil) plots followed closely, with median dissimilarities of 0.709 and 0.678 respectively. Áfoksjörð (aeolian/wind-deposited soil) plots, which made up the second largest group (n = 40), showed moderate but still substantial change (median = 0.655). The largest group, lífræn jörð (organic soil, n = 85), sat at the midpoint of the scale (median = 0.500), indicating that the average plot on organic soil replaced around half of its compositional weight over time. The least change was recorded on leirujörð (silty soil), where the median dissimilarity of 0.307 suggests that these communities were relatively stable across the survey interval, retaining roughly two-thirds of their original composition. Klapparjörð (rocky soil) showed a similarly low median (0.398) but with very high variability (SD = 0.380), indicating that rocky-soil plots were highly inconsistent — some barely changed while others changed almost completely. The overall pattern suggests that plots on more dynamic, unstable, or hydrologically active substrates tended to undergo greater compositional turnover than those on the more widespread and structurally stable organic soils that dominate the lowland landscape.
+
 
 ```{r bc-summary-table-moisture}
 bc_summary_moist <- plot_bc_env %>%
@@ -638,72 +895,84 @@ idx_last = row_idx[sample == "last"],
 ) %>%
 dplyr::mutate(bc_dist = purrr::map2_dbl(idx_first, idx_last, ~ bc_matrix[.x, .y]))
 
-env_first_pca <- meta_strict %>%
-dplyr::filter(sample == "first") %>%
-dplyr::select(
-plot_number,
-háplöntuþekja,
-vegetation_height_mean,
-total_cover,
-soil_depth
+# Only columns that survive the prep pipeline into meta_strict.
+# háplöntuþekja / total_cover / vegetation_height_mean are excluded from
+# vars_driver_strict_final and are not present in meta_strict.
+pca_vars_bc <- intersect(
+  c("soil_depth", "grýtniþekja", "gap_years", "elevation"),
+  names(meta_strict)
 )
+
+env_first_pca <- meta_strict %>%
+  dplyr::filter(sample == "first") %>%
+  dplyr::select(plot_number, dplyr::any_of(pca_vars_bc))
+
 pca_dat <- plot_bc %>%
-dplyr::left_join(env_first_pca, by = "plot_number") %>%
-dplyr::filter(stats::complete.cases(háplöntuþekja, vegetation_height_mean,
-total_cover, soil_depth))
+  dplyr::left_join(env_first_pca, by = "plot_number") %>%
+  dplyr::filter(dplyr::if_all(dplyr::any_of(pca_vars_bc), ~ !is.na(.)))
 
 pca_env <- prcomp(
-pca_dat %>%
-dplyr::select(háplöntuþekja, vegetation_height_mean, total_cover, soil_depth),
-center = TRUE,
-scale. = TRUE
+  pca_dat %>% dplyr::select(dplyr::any_of(pca_vars_bc)),
+  center = TRUE,
+  scale. = TRUE
 )
 pca_scores <- as.data.frame(pca_env$x) %>%
-dplyr::mutate(
-plot_number = pca_dat$plot_number,
-bc_dist = pca_dat$bc_dist
-)
+  dplyr::mutate(
+    plot_number = pca_dat$plot_number,
+    bc_dist     = pca_dat$bc_dist
+  )
 pca_loadings <- as.data.frame(pca_env$rotation) %>%
-tibble::rownames_to_column("variable")
+  tibble::rownames_to_column("variable")
 
-var_expl <- 100 * (pca_env$sdev^2) / sum(pca_env$sdev^2)
+var_expl    <- 100 * (pca_env$sdev^2) / sum(pca_env$sdev^2)
+scale_factor <- max(abs(pca_scores[, c("PC1", "PC2")])) * 0.65
+
 ggplot(pca_scores, aes(x = PC1, y = PC2, colour = bc_dist)) +
-geom_point(size = 2, alpha = 0.85) +
-scale_colour_viridis_c(option = "C", name = "Bray–Curtis\n(first → last)") +
-geom_segment(
-data = pca_loadings,
-aes(x = 0, y = 0, xend = PC1 * 2.5, yend = PC2 * 2.5),
-arrow = arrow(length = unit(0.2, "cm")),
-inherit.aes = FALSE,
-colour = "#c0392b",
-linewidth = 0.7
-) +
-geom_label_repel(
-data = pca_loadings,
-aes(x = PC1 * 2.7, y = PC2 * 2.7, label = variable),
-inherit.aes = FALSE,
-size = 3,
-colour = "#c0392b",
-fill = alpha("white", 0.8),
-label.size = 0,
-max.overlaps = 15,
-seed = 44
-) +
-labs(
-title = "PCA of environmental drivers (first survey)",
-subtitle = sprintf("PC1: %.1f%%, PC2: %.1f%% of variance",
-var_expl[1], var_expl[2]),
-x = "PC1",
-y = "PC2"
-) +
-theme_classic(base_size = 11) +
-theme(
-legend.position = "right",
-plot.subtitle = element_text(size = 8, colour = "grey40")
-)
+  geom_point(size = 2, alpha = 0.85) +
+  scale_colour_viridis_c(option = "C", name = "Bray–Curtis\n(first → last)") +
+  geom_segment(
+    data = pca_loadings,
+    aes(x = 0, y = 0,
+        xend = PC1 * scale_factor,
+        yend = PC2 * scale_factor),
+    arrow = arrow(length = unit(0.20, "cm"), type = "closed"),
+    inherit.aes = FALSE,
+    colour    = "#c0392b",
+    linewidth = 0.70
+  ) +
+  geom_label_repel(
+    data = pca_loadings,
+    aes(x = PC1 * scale_factor * 1.12,
+        y = PC2 * scale_factor * 1.12,
+        label = variable),
+    inherit.aes  = FALSE,
+    size         = 3,
+    colour       = "#c0392b",
+    fill         = alpha("white", 0.80),
+    label.size   = 0,
+    max.overlaps = 15,
+    seed         = 44
+  ) +
+  coord_equal() +
+  labs(
+    title    = "PCA of environmental drivers (first survey)",
+    subtitle = sprintf(
+      "PC1: %.1f%%  ·  PC2: %.1f%%  ·  n = %d plots with complete predictors",
+      var_expl[1], var_expl[2], nrow(pca_dat)
+    ),
+    x       = sprintf("PC1 (%.1f%%)", var_expl[1]),
+    y       = sprintf("PC2 (%.1f%%)", var_expl[2]),
+    caption = "Red arrows: variable loadings (scaled to 65% of plot radius). Colour: Bray–Curtis distance (first → last)."
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    legend.position = "right",
+    plot.subtitle   = element_text(size = 8,   colour = "grey40"),
+    plot.caption    = element_text(size = 7.5, colour = "grey50", hjust = 0)
+  )
 
 ```
-Principal components analysis of first‑survey environmental drivers (háplöntuþekja, vegetation_height_mean, total_cover, soil_depth) for the 159 core plots; points are plots positioned by PC1 and PC2, coloured by their Bray–Curtis compositional change (first → last), and red arrows show variable loadings (PC1 explaining 62.8% and PC2 16.9% of total variance).
+Principal components analysis of first-survey environmental drivers (soil_depth, grýtniþekja, gap_years, and elevation if available) for all paired plots with complete predictors; points are positioned by PC1 and PC2, coloured by their Bray–Curtis compositional change (first → last), and red arrows show variable loadings scaled to 65% of the plot radius.
 
 
 ---

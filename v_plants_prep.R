@@ -176,7 +176,8 @@ v_plants2 <- v_plants_raw_main %>%
         vegetation_height_4
       )
       ifelse(rowSums(!is.na(h)) == 0, NA_real_, rowMeans(h, na.rm = TRUE))
-    }
+    },
+    grýtniþekja = replace_na(grýtniþekja, 0)
   ) %>%
   filter(!is.na(plot_number), !is.na(taxon_name), !is.na(year))
 
