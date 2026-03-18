@@ -123,7 +123,7 @@ vars_exclude_missing <- c(
   "subplot_nitrogen", "subplot_ph", "plant_community_other",
   "plant_community_3_code", "plant_community_3_id", "plant_community_3_name",
   "slope_aspect", "slope", "autt", "surface_type_code", "surface_type_id",
-  "surface_type_name", "soil_temperature_2", "plant_community_cover"
+  "surface_type_name", "soil_temperature_2", "plant_community_cover", "sinuthekja"
 )
 vars_exclude_text <- c(
   "comments", "subplot_comments", "images", "subplot_images", "project_description"
@@ -358,8 +358,8 @@ v_plants_div_all <- v_plants_raw_all %>%
   ) %>%
   filter(!is.na(plot_number), !is.na(taxon_name), !is.na(year))
 
-diversity_py_core <- build_diversity_py(v_plants_div_core) #This is useless
-diversity_py_all  <- build_diversity_py(v_plants_div_all) #This is important
+diversity_py_core <- build_diversity_py(v_plants_div_core) 
+diversity_py_all  <- build_diversity_py(v_plants_div_all) 
 
 # Assert S source: v_plants_div_all must contain only valid_subplots_main + outside_subplot_codes
 allowed_for_S <- c(valid_subplots_main, outside_subplot_codes)
@@ -421,10 +421,14 @@ pair_div <- function(div_tbl) {
 
 change_core <- pair_div(diversity_py_hybrid)
 
+# Total plot richness (core subplots + outside recordings) per plot-year.
+# Used as an ordination arrow only; not used for delta_S or Pielou_J calculations.
+S_total_py <- diversity_py_all %>% select(plot_number, year, S_total = S)
+
 # ------------------------------------------------------------------------------
 # 3) Variable roles and strict env set
 # ------------------------------------------------------------------------------
-id_vars <- c(# erum vi?? að filtera eitthva?? en svo eitthva?? anna?? sem starri vill
+id_vars <- c(
   "id", "plot_id", "subplot_id", "group_type_subplot_id",
   "project_id", "project_number", "analyser_id", "tag_id"
 )
@@ -493,32 +497,17 @@ env_candidates_ps <- paired_long %>%
   ) %>%
   left_join(gap_tbl, by = "plot_number")
 
-# Elevation already in elev_tbl (loaded earlier). Use for bc_enriched and env/meta joins.
-if (!is.null(elev_tbl)) {
-  env_first <- env_candidates_ps %>%
-    filter(sample == "first") %>%
-    select(plot_number, moisture_name, habitat_type_name, topography_name, permafrost) %>%
-    distinct()
-  bc_enriched <- bc_with_gap %>%
-    left_join(env_first, by = "plot_number") %>%
-    left_join(elev_tbl, by = "plot_number")
-  env_candidates_ps <- env_candidates_ps %>%
-    left_join(elev_tbl, by = "plot_number")
-} else {
-  bc_enriched <- NULL
-}
+# Elevation 
 if (!is.null(my_table) && "plot_number" %in% names(my_table)) {
   env_candidates_ps <- env_candidates_ps %>%
     left_join(my_table, by = "plot_number")
 }
 
 vars_driver_strict_final <- c(
-  #"haplontuthekja",
+  "haeddypimetrar",
   "soil_depth",
-  #"total_cover",
-  #"vegetation_height_mean",
+  #"gap_years",
   "soil_type_name",
-  #"habitat_type_name",
   "moisture_name",
   "topography_name",
   "permafrost"
@@ -526,7 +515,7 @@ vars_driver_strict_final <- c(
 #vars_driver_strict_final <- intersect(vars_driver_strict_final, names(env_candidates_ps))
 
 # Add extra exploratory vars here (do NOT add to vars_driver_strict_final)
-extra_env_exploratory <- c("habitat_type_name", "grytnithekja")
+extra_env_exploratory <- c("habitat_type_name", "gap_years")
 
 env_strict <- env_candidates_ps %>%
   select(
@@ -552,23 +541,26 @@ meta_strict <- community_wide_strict %>%
   select(plot_number, sample) %>%
   left_join(env_strict_cc, by = c("plot_number", "sample")) %>%
   left_join(gap_tbl, by = "plot_number")
-if (!is.null(elev_tbl)) {
-  meta_strict <- meta_strict %>%
-    left_join(elev_tbl, by = "plot_number")
-}
-if (!is.null(my_table) && "plot_number" %in% names(my_table)) {
-  meta_strict <- meta_strict %>%
-    left_join(my_table, by = "plot_number")
-}
+
 
 mat_strict <- community_wide_strict %>%
+  mutate(rn = paste(plot_number, sample, sep = "_")) %>%
   select(-plot_number, -sample) %>%
+  tibble::column_to_rownames("rn") %>%
   as.matrix()
-
+mat_strict <- mat_strict[, colSums(mat_strict) > 0]
 # ------------------------------------------------------------------------------
 # 4) Strict model objects used by downstream reports
 # ------------------------------------------------------------------------------
-nmds_strict <- vegan::metaMDS(mat_strict, distance = "bray", trymax = 100, trace = FALSE)
+#nmds_strict <- vegan::metaMDS(mat_strict, distance = "bray", trymax = 100, trace = FALSE)
+
+nmds_cache <- file.path(base_dir, "outputs", "nmds_strict_cache.rds")
+if (file.exists(nmds_cache)) {
+  nmds_strict <- readRDS(nmds_cache)
+} else {
+  nmds_strict <- vegan::metaMDS(mat_strict, distance = "bray", trymax = 100, trace = FALSE)
+  saveRDS(nmds_strict, nmds_cache)
+}
 
 envfit_formula_df <- meta_strict %>%
   dplyr::select(all_of(vars_driver_strict_final)) %>%

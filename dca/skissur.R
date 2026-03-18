@@ -33,8 +33,8 @@ sp_sc <- scores(dca, display = "species") %>%
 
 # ── 4. Join metadata ──────────────────────────────────────────────────────────
 extra_env_vars <- c(
-  "vegetation_height_mean", "mosaþekja", "total_cover",
-  "háplöntuþekja", "fléttuþekja", "Mosa- og fléttuskán"
+  "vegetation_height_mean", "mosathekja", "total_cover",
+  "haplontuthekja", "flettuthekja", "mosa_og_flettuskan"
 )
 
 env_extra <- env_candidates_ps %>%
@@ -59,8 +59,8 @@ cat("Rows:", nrow(site_env), "— expected:", nrow(mat_inland), "\n")
 # ── 5. envfit — continuous ────────────────────────────────────────────────────
 env_num_mat <- site_env %>%
   select(vegetation_height_mean,
-         mosaþekja, total_cover, háplöntuþekja,
-         fléttuþekja, `Mosa- og fléttuskán`, grýtniþekja)
+         mosathekja, total_cover, haplontuthekja,
+         flettuthekja, mosa_og_flettuskan, grytnithekja)
 
 set.seed(123)
 ef_num  <- envfit(dca, env_num_mat, permutations = 999, na.rm = TRUE)
@@ -245,6 +245,13 @@ richness_env
 site_env <- site_env %>%
   left_join(richness_env, by = c("plot_number", "sample"))
 
+site_env <- site_env %>%
+  left_join(
+    sample_lookup %>%
+      left_join(S_total_py, by = c("plot_number", "year")),
+    by = c("plot_number", "sample")
+  )
+
 # Sanity check
 cat("NAs in mean_subplot_richness:", sum(is.na(site_env$mean_subplot_richness)), "\n")
 cat("NAs in total_plot_richness:",   sum(is.na(site_env$total_plot_richness)), "\n")
@@ -252,9 +259,10 @@ cat("NAs in total_plot_richness:",   sum(is.na(site_env$total_plot_richness)), "
 # Updated envfit matrix
 env_num_mat2 <- site_env %>%
   select(vegetation_height_mean,
-         mosaþekja, total_cover, háplöntuþekja,
-         fléttuþekja, `Mosa- og fléttuskán`, grýtniþekja,
-         mean_subplot_richness, total_plot_richness)
+         mosathekja, total_cover, haplontuthekja,
+         flettuthekja, mosa_og_flettuskan, grytnithekja,
+         mean_subplot_richness, total_plot_richness,
+         S_total)   # <-- added
 
 set.seed(123)
 ef_num2 <- envfit(dca, env_num_mat2, permutations = 999, na.rm = TRUE)

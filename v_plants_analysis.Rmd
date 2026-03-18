@@ -57,7 +57,7 @@ set.seed(123)
 ```{r bootstrap-required-objects}
 # Knit runs in a clean session. Load from cache if available; otherwise run full prep.
 prep_script <- "v_plants_prep.R"
-prep_cache <- "outputs/v_plants_prep.rds"
+prep_cache <- "outputs/nmds_strict_cache.rds"
 if (file.exists(prep_cache)) {
   prep_objs <- readRDS(prep_cache)
   list2env(prep_objs, envir = .GlobalEnv)

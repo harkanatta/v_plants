@@ -14,7 +14,7 @@ name_map <- c(
   "engjaskófir" = "engjaskofir",
   "breiskjufléttur" = "breiskjuflettur",
   "Mosa- og fléttuskán" = "mosa_og_flettuskan",
-  "kræðufléttur" = "kraedufl ettur",
+  "kræðufléttur" = "kraeduflettur",
   "svarðmosi" = "svardmosi",
   "grýtniþekja" = "grytnithekja",
   "sinuþekja" = "sinuthekja",
