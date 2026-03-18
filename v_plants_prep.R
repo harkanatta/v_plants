@@ -119,14 +119,14 @@ heiti_include <- c(
 
 vars_exclude_missing <- c(
   "biomass", "precipitation", "stone_class", "temperature_january",
-  "temperature_july", "temperature_year", "heildarþekja", "subplot_carbon",
+  "temperature_july", "temperature_year", "heildarthekja", "subplot_carbon",
   "subplot_nitrogen", "subplot_ph", "plant_community_other",
   "plant_community_3_code", "plant_community_3_id", "plant_community_3_name",
   "slope_aspect", "slope", "autt", "surface_type_code", "surface_type_id",
   "surface_type_name", "soil_temperature_2", "plant_community_cover"
 )
 vars_exclude_text <- c(
-  "comments", "subplot_comments", "images", "subplot_images", "project_descrtiption"
+  "comments", "subplot_comments", "images", "subplot_images", "project_description"
 )
 vars_exclude_strict <- c(vars_exclude_missing, vars_exclude_text)
 
@@ -177,35 +177,15 @@ v_plants2 <- v_plants_raw_main %>%
       )
       ifelse(rowSums(!is.na(h)) == 0, NA_real_, rowMeans(h, na.rm = TRUE))
     },
-    grýtniþekja = replace_na(grýtniþekja, 0)
+    grytnithekja = replace_na(grytnithekja, 0)
   ) %>%
   filter(!is.na(plot_number), !is.na(taxon_name), !is.na(year))
 
 v_plants_use <- v_plants2 %>%
   select(-any_of(vars_exclude_strict))
 
-# Optional: elevation from gpkg — load once for v_plants_use and later for env/meta
-elev_tbl <- NULL
-if (requireNamespace("sf", quietly = TRUE)) {
-  gpkg_candidates <- c(
-    file.path(base_dir, "outputs", "qgis_share", "snid_with_elevation.gpkg"),
-    file.path(base_dir, "gagnagrunnurNI", "outputs", "qgis_share", "snid_with_elevation.gpkg")
-  )
-  gpkg_path <- gpkg_candidates[file.exists(gpkg_candidates)][1]
-  if (!is.na(gpkg_path)) {
-    snid_elev <- sf::st_read(gpkg_path, quiet = TRUE)
-    elev_tbl <- snid_elev %>%
-      sf::st_drop_geometry() %>%
-      group_by(plot_number) %>%
-      summarise(haeddypimetrar = first(haeddypimetrar), .groups = "drop")
-  }
-}
-if (!is.null(elev_tbl)) {
-  v_plants_use <- v_plants_use %>%
-    left_join(elev_tbl, by = "plot_number")
-}
 
-# Optional: table from QGIS (CSV) — NA/NULL replaced with 0, joined to v_plants_use and env/meta
+# Optional: table from QGIS (CSV) ??? NA/NULL replaced with 0, joined to v_plants_use and env/meta
 my_table_path <- file.path(base_dir, "outputs", "qgis_share", "my_table.csv")
 my_table <- NULL
 if (file.exists(my_table_path)) {
@@ -257,7 +237,7 @@ paired_cover <- paired_long %>%
     cover_num = coalesce(
       scale_value_value,
       case_when(
-        scale_value_code %in% c("•", "·", "\u2022") ~ 0.25,
+        scale_value_code %in% c("???", "??", "\u2022") ~ 0.25,
         scale_value_code == "+" ~ 0.75,
         scale_value_code == "1" ~ 3,
         scale_value_code == "2" ~ 15,
@@ -289,7 +269,7 @@ meta <- community_wide %>% select(plot_number, sample)
 mat <- community_wide %>% select(-plot_number, -sample) %>% as.matrix()
 
 # ------------------------------------------------------------------------------
-# 2a) Per-plot Bray–Curtis distance (first vs last) + gap in years
+# 2a) Per-plot Bray???Curtis distance (first vs last) + gap in years
 # ------------------------------------------------------------------------------
 bc_per_plot <- community_wide %>%
   group_by(plot_number) %>%
@@ -312,15 +292,18 @@ bc_with_gap <- bc_per_plot %>%
   left_join(gap_tbl, by = "plot_number")
 
 # ------------------------------------------------------------------------------
-# 2b) Plot-level diversity with and without outside-subplot records (optional)
+# 2b) Plot-level diversity (hybrid: S from core+outside, cover-based from core)
 # ------------------------------------------------------------------------------
+# Design:
+#   - S (richness): valid_subplots_main + outside_subplot_codes (full species list)
+#   - Shannon H', Simpson 1-D, Pielou's J: valid_subplots_main only, from cover
 build_diversity_py <- function(dat) {
   dat %>%
     mutate(
       cover_num = coalesce(
         scale_value_value,
         case_when(
-          scale_value_code %in% c("•", "·", "\u2022") ~ 0.25,
+          scale_value_code %in% c("???", "??", "\u2022") ~ 0.25,
           scale_value_code == "+" ~ 0.75,
           scale_value_code == "1" ~ 3,
           scale_value_code == "2" ~ 15,
@@ -344,7 +327,7 @@ build_diversity_py <- function(dat) {
         Shannon     = vegan::diversity(mats, index = "shannon"),
         Simpson     = vegan::diversity(mats, index = "simpson")
       ) %>%
-        mutate(Evenness = Shannon / log(pmax(S, 1)))
+        mutate(Pielou_J = Shannon / log(pmax(S, 1)))
     }
 }
 
@@ -375,16 +358,37 @@ v_plants_div_all <- v_plants_raw_all %>%
   ) %>%
   filter(!is.na(plot_number), !is.na(taxon_name), !is.na(year))
 
-diversity_py_core <- build_diversity_py(v_plants_div_core)
-diversity_py_all  <- build_diversity_py(v_plants_div_all)
+diversity_py_core <- build_diversity_py(v_plants_div_core) #This is useless
+diversity_py_all  <- build_diversity_py(v_plants_div_all) #This is important
 
-revisited_yrs <- plot_years %>% select(plot_number, year_first, year_last)
+# Assert S source: v_plants_div_all must contain only valid_subplots_main + outside_subplot_codes
+allowed_for_S <- c(valid_subplots_main, outside_subplot_codes)
+subplot_codes_in_all <- v_plants_div_all %>%
+  filter(!is.na(subplot_number)) %>%
+  pull(subplot_number) %>%
+  unique()
+stopifnot(
+  "S must be from valid_subplots_main + outside_subplot_codes only" =
+    all(subplot_codes_in_all %in% allowed_for_S)
+)
+
+# Hybrid: S from core+outside; Shannon, Simpson, Pielou's J from core (cover-based)
+diversity_py_hybrid <- diversity_py_core %>%
+  select(plot_number, year, Shannon, Simpson, Pielou_J) %>%
+  left_join(
+    diversity_py_all %>% select(plot_number, year, S),
+    by = c("plot_number", "year")
+  )
+
+revisited_yrs <- plot_years %>%
+  select(plot_number, year_first, year_last) %>%
+  filter(year_last > year_first)  # must have at least 1 year between surveys
 
 pair_div <- function(div_tbl) {
   paired <- div_tbl %>%
     inner_join(revisited_yrs, by = "plot_number") %>%
     filter(year %in% c(year_first, year_last))
-
+  
   first_div <- paired %>%
     filter(year == year_first) %>%
     select(
@@ -392,9 +396,9 @@ pair_div <- function(div_tbl) {
       S_first        = S,
       Shannon_first  = Shannon,
       Simpson_first  = Simpson,
-      Evenness_first = Evenness
+      Pielou_J_first = Pielou_J
     )
-
+  
   last_div <- paired %>%
     filter(year == year_last) %>%
     select(
@@ -402,26 +406,25 @@ pair_div <- function(div_tbl) {
       S_last        = S,
       Shannon_last  = Shannon,
       Simpson_last  = Simpson,
-      Evenness_last = Evenness
+      Pielou_J_last = Pielou_J
     )
-
+  
   first_div %>%
     full_join(last_div, by = "plot_number") %>%
     mutate(
       delta_S        = S_last        - S_first,
       delta_Shannon  = Shannon_last  - Shannon_first,
       delta_Simpson  = Simpson_last  - Simpson_first,
-      delta_Evenness = Evenness_last - Evenness_first
+      delta_Pielou_J = Pielou_J_last - Pielou_J_first
     )
 }
 
-change_core <- pair_div(diversity_py_core)
-change_all  <- pair_div(diversity_py_all)
+change_core <- pair_div(diversity_py_hybrid)
 
 # ------------------------------------------------------------------------------
 # 3) Variable roles and strict env set
 # ------------------------------------------------------------------------------
-id_vars <- c(
+id_vars <- c(# erum vi?? að filtera eitthva?? en svo eitthva?? anna?? sem starri vill
   "id", "plot_id", "subplot_id", "group_type_subplot_id",
   "project_id", "project_number", "analyser_id", "tag_id"
 )
@@ -475,11 +478,17 @@ mode_value <- function(x) {
   names(sort(table(x), decreasing = TRUE))[1]
 }
 
+# For numeric env vars: treat NA as 0 when the variable was measured (has any non-NA).
+# Columns that are entirely NA stay NA (variable never measured).
 env_candidates_ps <- paired_long %>%
+  mutate(across(
+    any_of(vars_env_numeric),
+    ~ if (all(is.na(.))) . else replace_na(., 0)
+  )) %>%
   group_by(plot_number, sample) %>%
   summarise(
-    across(all_of(vars_env_numeric), ~ if (all(is.na(.x))) NA_real_ else mean(.x, na.rm = TRUE)),
-    across(all_of(vars_env_factor), ~ mode_value(as.character(.x))),
+    across(any_of(vars_env_numeric), ~ if (all(is.na(.x))) NA_real_ else mean(.x, na.rm = TRUE)),
+    across(any_of(vars_env_factor), ~ mode_value(as.character(.x))),
     .groups = "drop"
   ) %>%
   left_join(gap_tbl, by = "plot_number")
@@ -504,7 +513,7 @@ if (!is.null(my_table) && "plot_number" %in% names(my_table)) {
 }
 
 vars_driver_strict_final <- c(
-  #"háplöntuþekja",
+  #"haplontuthekja",
   "soil_depth",
   #"total_cover",
   #"vegetation_height_mean",
@@ -517,7 +526,7 @@ vars_driver_strict_final <- c(
 #vars_driver_strict_final <- intersect(vars_driver_strict_final, names(env_candidates_ps))
 
 # Add extra exploratory vars here (do NOT add to vars_driver_strict_final)
-extra_env_exploratory <- c("habitat_type_name", "grýtniþekja")
+extra_env_exploratory <- c("habitat_type_name", "grytnithekja")
 
 env_strict <- env_candidates_ps %>%
   select(
@@ -526,7 +535,7 @@ env_strict <- env_candidates_ps %>%
     any_of(extra_env_exploratory)   # included but not used for drop_na()
   ) %>%
   distinct()
-  
+
 
 env_strict_cc <- env_strict %>%
   drop_na(all_of(vars_driver_strict_final))
@@ -583,11 +592,10 @@ bd_test_strict <- vegan::permutest(bd_strict, permutations = 999)
 
 # Keep this explicit for downstream reporting consistency
 driver_final <- c(
-  "háplöntuþekja",
+  "h??pl??ntu??ekja",
   "soil_depth",
   "total_cover",
   "vegetation_height_mean",
   "soil_type_name",
   "moisture_name"
 )
-

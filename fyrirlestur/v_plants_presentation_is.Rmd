@@ -466,7 +466,7 @@ fit_tbl_core %>%
     "permafrost"       = "frörimi",
     "topography_name"  = "landslag"
   )) %>%
-  select(Breyta = variable, `r²` = r2, `p` = p_value, ` ` = sig, Tegund = kind) %>%
+  select(Breyta = variable, R2 = r2, p = p_value, Sig = sig, Tegund = kind) %>%
   kable(align = c("l","r","r","c","l")) %>%
   kable_styling(font_size = 13, full_width = FALSE,
                 bootstrap_options = c("striped","hover"))
@@ -925,7 +925,7 @@ fit_tbl_core %>%
     "permafrost"       = "frörimi",
     "topography_name"  = "landslag"
   )) %>%
-  select(Breyta = variable, `r²` = r2, `p` = p_value, Tegund = kind) %>%
+  select(Breyta = variable, R2 = r2, p = p_value, Tegund = kind) %>%
   kable(align = c("l","r","r","l")) %>%
   kable_styling(font_size = 13, full_width = FALSE, bootstrap_options = c("striped","hover"))
 ```

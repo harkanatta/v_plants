@@ -457,7 +457,7 @@ fit_tbl_core <- bind_rows(
          p_value = round(p_value, 3))
 
 fit_tbl_core %>%
-  select(Variable = variable, `r²` = r2, `p` = p_value, ` ` = sig, Type = kind) %>%
+  select(Variable = variable, R2 = r2, p = p_value, Sig = sig, Type = kind) %>%
   kable(align = c("l","r","r","c","l")) %>%
   kable_styling(font_size = 13, full_width = FALSE,
                 bootstrap_options = c("striped","hover"))

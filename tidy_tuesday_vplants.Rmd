@@ -471,7 +471,7 @@ p_S / p_H
 
 ```{r diversity-deltas, fig.height=5, fig.cap="Distribution of within-plot change in diversity indices. Dashed line at zero."}
 change_long_div <- change_core %>%
-  select(plot_number, delta_S, delta_Shannon, delta_Simpson, delta_Evenness) %>%
+  select(plot_number, delta_S, delta_Shannon, delta_Simpson, delta_Pielou_J) %>%
   pivot_longer(
     cols = starts_with("delta_"),
     names_to = "index",
@@ -479,8 +479,8 @@ change_long_div <- change_core %>%
   ) %>%
   mutate(index = factor(
     index,
-    levels = c("delta_S", "delta_Shannon", "delta_Simpson", "delta_Evenness"),
-    labels = c("Δ Richness (S)", "Δ Shannon", "Δ Simpson", "Δ Evenness")
+    levels = c("delta_S", "delta_Shannon", "delta_Simpson", "delta_Pielou_J"),
+    labels = c("Δ Richness (S)", "Δ Shannon", "Δ Simpson", "Δ Pielou's J")
   ))
 
 ggplot(change_long_div, aes(x = delta)) +

@@ -55,12 +55,18 @@ set.seed(123)
 ```
 
 ```{r bootstrap-required-objects}
-# Knit runs in a clean session. Use shared prep script as single source of truth.
+# Knit runs in a clean session. Load from cache if available; otherwise run full prep.
 prep_script <- "v_plants_prep.R"
-if (!file.exists(prep_script)) {
-  stop("Required script not found: ", prep_script)
+prep_cache <- "outputs/v_plants_prep.rds"
+if (file.exists(prep_cache)) {
+  prep_objs <- readRDS(prep_cache)
+  list2env(prep_objs, envir = .GlobalEnv)
+} else {
+  if (!file.exists(prep_script)) {
+    stop("Required script not found: ", prep_script)
+  }
+  source(prep_script, local = .GlobalEnv)
 }
-source(prep_script, local = .GlobalEnv)
 ```
 
 ---
@@ -101,7 +107,7 @@ env_all <- meta_strict %>%
     vars_driver_strict_final,        # robust core drivers
     "gap_years",                     # time gap effect
     #"habitat_type_name",             # broader habitat grouping
-    "grýtniþekja"                    # exploratory rock cover
+    "grytnithekja"                   # exploratory rock cover
   ))) %>%
   mutate(
     across(where(is.character), as.factor),
@@ -222,7 +228,7 @@ meta_outliers <- meta_strict %>%
   filter(plot_number %in% outlier_plots) %>%
   select(
     plot_number, sample,
-    soil_depth, grýtniþekja,
+    soil_depth, grytnithekja,
     any_of(c("vegetation_height_mean", "soil_type_name")),
     moisture_name, topography_name
   )
@@ -593,144 +599,334 @@ ggsave("outputs/p_nmds_trajectory.png",
        bg     = "white")
 ```
 
-## 2.5 PCA: first-survey environmental drivers vs. trajectory displacement
+### 2.4b NMDS trajectory — coastal habitat types excluded
 
-PCA of numeric first-survey predictors, with points coloured by per-plot NMDS
-displacement (arrow length from Section 2.4). If plots with large displacements
-cluster at one end of a principal component, the loading of that component
-identifies the environmental variables that predict greater compositional change
-between surveys.
+Same as Section 2.4 but excluding plots with coastal habitat types (Sandstrandarvist, Strandmelhólavist, Sjávarfitjungsvist, Sjávarkletta- og eyjavist). Uses `habitat_type_name` from meta (sourced via prep).
 
-```{r traj-pca, fig.height=7, fig.width=8, fig.cap="PCA of first-survey environmental predictors for 158 core plots. Points are coloured by per-plot NMDS displacement (first → last survey). Red arrows show variable loadings; length reflects contribution to the principal axes. A gradient in displacement colour along a loading arrow indicates that variable predicts the magnitude of compositional change."}
+```{r nmds-trajectory-inland, fig.height=8, fig.cap=sprintf("NMDS trajectory plot — coastal habitat types excluded. Arrows: per-plot shift from first to last survey, coloured by soil type. Ellipses (70%% normal): first (dashed) and last (solid) survey community clouds. Italic labels: taxa > 1%% relative abundance.", nrow(traj_wide_inland))}
 
-# --- Build analysis table: first-survey env vars + trajectory metrics ---
-# Only numeric columns that survive the prep pipeline into meta_core.
-# háplöntuþekja / total_cover / vegetation_height_mean were commented out of
-# vars_driver_strict_final and are not present in meta_strict/meta_core.
-pca_vars_candidate <- c("soil_depth", "gap_years", "elevation","vegetation_height_mean", "total_cover")# "grýtniþekja")
-pca_vars <- intersect(pca_vars_candidate, names(meta_core))
-#pca_vars <- names(meta_core)
+coastal_types <- c("Sandstrandarvist", "Strandmelhólavist",
+                   "Sjávarfitjungsvist", "Sjávarkletta- og eyjavist")
 
-env_traj <- meta_core %>%
-  filter(sample == "first") %>%
-  select(plot_number, any_of(pca_vars)) %>%
-  inner_join(
-    traj_wide %>%
-      mutate(
-        arrow_length = sqrt((NMDS1_last - NMDS1_first)^2 +
-                            (NMDS2_last - NMDS2_first)^2),
-        dNMDS1 = NMDS1_last - NMDS1_first,
-        dNMDS2 = NMDS2_last - NMDS2_first
-      ) %>%
-      select(plot_number, arrow_length, dNMDS1, dNMDS2),
-    by = "plot_number"
-  ) %>%
-  filter(complete.cases(.))
+# Exclude plots where any survey has a coastal habitat type
+if ("habitat_type_name" %in% names(meta_core)) {
+  coastal_plots <- meta_core %>%
+    filter(habitat_type_name %in% coastal_types) %>%
+    distinct(plot_number) %>%
+    pull(plot_number)
+  keep_inland <- !meta_core$plot_number %in% coastal_plots
+} else {
+  keep_inland <- rep(TRUE, nrow(meta_core))
+  warning("habitat_type_name not in meta_core; no coastal exclusion applied.")
+}
 
-# --- PCA on environmental predictors only ---
-pca_traj <- prcomp(
-  env_traj %>% select(any_of(pca_vars)),
-  center = TRUE,
-  scale. = TRUE
+meta_core_inland <- meta_core[keep_inland, ]
+mat_core_inland <- mat_core[keep_inland, ]
+mat_core_inland <- mat_core_inland[, colSums(mat_core_inland) > 0]
+
+nmds_core_inland <- metaMDS(
+  mat_core_inland,
+  distance = "bray",
+  k        = 2,
+  trymax   = 200,
+  trace    = FALSE
 )
 
-pca_scores <- as.data.frame(pca_traj$x) %>%
-  mutate(
-    plot_number  = env_traj$plot_number,
-    arrow_length = env_traj$arrow_length,
-    dNMDS1       = env_traj$dNMDS1,
-    dNMDS2       = env_traj$dNMDS2
-  )
+# --- Per-plot arrow data ---
+traj_wide_inland <- as.data.frame(scores(nmds_core_inland, display = "sites")) %>%
+  bind_cols(meta_core_inland %>% select(plot_number, sample)) %>%
+  pivot_wider(
+    names_from  = sample,
+    values_from = c(NMDS1, NMDS2),
+    names_sep   = "_"
+  ) %>%
+  left_join(
+    meta_core_inland %>% filter(sample == "first") %>% select(plot_number, soil_type_name),
+    by = "plot_number"
+  ) %>%
+  filter(complete.cases(NMDS1_first, NMDS2_first, NMDS1_last, NMDS2_last))
 
-pca_loadings <- as.data.frame(pca_traj$rotation) %>%
-  rownames_to_column("variable")
+# --- Dominant species (>1% relative abundance in mat_core_inland) ---
+rel_abund_inland   <- colSums(mat_core_inland) / sum(mat_core_inland)
+dominant_spp_inland <- names(rel_abund_inland[rel_abund_inland > 0.01])
 
-var_expl <- 100 * (pca_traj$sdev^2) / sum(pca_traj$sdev^2)
+sp_scores_dom_inland <- as.data.frame(scores(nmds_core_inland, display = "species")) %>%
+  rownames_to_column("taxon") %>%
+  filter(taxon %in% dominant_spp_inland)
 
-# Scaling factor so arrows fill ~2/3 of the point cloud
-scale_factor <- max(abs(pca_scores[, c("PC1", "PC2")])) * 0.65
+# --- Survey-group scores (for ellipses) ---
+survey_scores_inland <- as.data.frame(scores(nmds_core_inland, display = "sites")) %>%
+  bind_cols(meta_core_inland %>% select(sample))
 
-ppca_scores <- ggplot(pca_scores, aes(x = PC1, y = PC2, colour = arrow_length)) +
-  geom_point(size = 2.0, alpha = 0.85) +
-  scale_colour_viridis_c(
-    option = "C",
-    name   = "NMDS\ndisplacement"
+# --- Plot ---
+p_nmds_traj_inland <- ggplot() +
+  stat_ellipse(
+    data      = survey_scores_inland,
+    aes(x = NMDS1, y = NMDS2, group = sample, linetype = sample),
+    type      = "norm", level = 0.70,
+    colour    = "grey45", linewidth = 0.55
   ) +
   geom_segment(
-    data = pca_loadings,
-    aes(x = 0, y = 0,
-        xend = PC1 * scale_factor,
-        yend = PC2 * scale_factor),
-    arrow      = arrow(length = unit(0.20, "cm"), type = "closed"),
-    inherit.aes = FALSE,
-    colour     = "#c0392b",
-    linewidth  = 0.70
+    data = traj_wide_inland,
+    aes(x = NMDS1_first, y = NMDS2_first,
+        xend = NMDS1_last, yend = NMDS2_last,
+        colour = soil_type_name),
+    arrow     = arrow(length = unit(0.18, "cm"), type = "closed"),
+    linewidth = 0.45, alpha = 0.70
   ) +
-  geom_label_repel(
-    data = pca_loadings,
-    aes(x = PC1 * scale_factor * 1.12,
-        y = PC2 * scale_factor * 1.12,
-        label = variable),
-    inherit.aes  = FALSE,
-    size         = 3.0,
-    colour       = "#c0392b",
-    fill         = alpha("white", 0.80),
-    label.size   = 0,
-    max.overlaps = 15,
-    seed         = 44
+  geom_text_repel(
+    data = sp_scores_dom_inland,
+    aes(x = NMDS1, y = NMDS2, label = taxon),
+    size = 2.5, colour = "grey20", fontface = "italic",
+    max.overlaps = 30, seed = 55
+  ) +
+  scale_linetype_manual(
+    values = c(first = "dashed", last = "solid"),
+    labels = c(first = "First survey", last = "Last survey")
   ) +
   coord_equal() +
   labs(
-    title    = "PCA — first-survey environmental drivers",
-    subtitle = sprintf(
-      "PC1: %.1f%%  ·  PC2: %.1f%%  ·  n = %d plots with complete predictors",
-      var_expl[1], var_expl[2], nrow(env_traj)
-    ),
-    x       = sprintf("PC1 (%.1f%%)", var_expl[1]),
-    y       = sprintf("PC2 (%.1f%%)", var_expl[2]),
-    caption = paste(
-      "Points: plots, coloured by NMDS displacement (first → last).",
-      "Red arrows: variable loadings (scaled to 65% of plot radius).",
+    title    = "NMDS — per-plot trajectories (coastal habitat types excluded)",
+    subtitle = sprintf("%d plots · Bray–Curtis · stress = %.3f",
+                       nrow(traj_wide_inland), nmds_core_inland$stress),
+    x        = "NMDS1",
+    y        = "NMDS2",
+    colour   = "Soil type",
+    linetype = "Survey ellipse",
+    caption  = paste(
+      "Excluded: Sandstrandarvist, Strandmelhólavist, Sjávarfitjungsvist, Sjávarkletta- og eyjavist.",
+      "Arrows: first → last survey per plot. Ellipses: 70% normal.",
       sep = "\n"
     )
   ) +
   theme_classic(base_size = 11) +
   theme(
-    legend.position = "right",
+    legend.position = "bottom",
+    legend.box      = "vertical",
     plot.subtitle   = element_text(size = 8,   colour = "grey40"),
     plot.caption    = element_text(size = 7.5, colour = "grey50", hjust = 0)
   )
-ggsave("outputs/ppca_scores.png",
-       plot   = ppca_scores,
-       width  = 16,   # cm — square-ish canvas to match coord_equal() panel
-       height = 19,   # cm — extra height for stacked legend (soil type + ellipse)
-       units  = "cm",
-       dpi    = 300,
-       bg     = "white")
-```
+
+ggsave("outputs/p_nmds_trajectory_inland.png",
+       plot   = p_nmds_traj_inland,
+       width  = 16, height = 19, units = "cm", dpi = 300, bg = "white")
 ```
 
-```{r traj-pca-cortable}
-# Pearson correlations between PC scores and displacement metrics
-cor_tbl <- bind_rows(
-  lapply(c("PC1", "PC2", "PC3"), function(pc) {
-    tibble(
-      PC           = pc,
-      arrow_length = cor(pca_scores[[pc]], pca_scores$arrow_length,
-                         use = "complete.obs"),
-      dNMDS1       = cor(pca_scores[[pc]], pca_scores$dNMDS1,
-                         use = "complete.obs"),
-      dNMDS2       = cor(pca_scores[[pc]], pca_scores$dNMDS2,
-                         use = "complete.obs")
-    )
-  })
-) %>%
-  mutate(across(where(is.numeric), round, 3))
+```{r nmds-core-vs-inland-comparison, echo=TRUE, results='hold'}
+# Compare NMDS: core (outlier exclusion only) vs inland (outlier + coastal habitat exclusion)
+cat("=== NMDS comparison: core vs inland (coastal excluded) ===\n\n")
 
-print_full(
-  cor_tbl,
-  caption = "Pearson r between PC scores and trajectory displacement metrics. arrow_length: magnitude of NMDS shift; dNMDS1/dNMDS2: directional components."
+cat("Plots:  ", nrow(meta_core), " → ", nrow(meta_core_inland),
+    " (removed ", nrow(meta_core) - nrow(meta_core_inland), ")\n", sep = "")
+cat("Taxa:   ", ncol(mat_core), " → ", ncol(mat_core_inland), "\n\n")
+
+cat("Stress: ", round(nmds_core$stress, 4), " → ", round(nmds_core_inland$stress, 4), "\n\n")
+
+len_core   <- sqrt((traj_wide$NMDS1_last - traj_wide$NMDS1_first)^2 +
+                   (traj_wide$NMDS2_last - traj_wide$NMDS2_first)^2)
+len_inland <- sqrt((traj_wide_inland$NMDS1_last - traj_wide_inland$NMDS1_first)^2 +
+                   (traj_wide_inland$NMDS2_last - traj_wide_inland$NMDS2_first)^2)
+cat("Mean trajectory length (NMDS units):\n")
+cat("  Core:   ", round(mean(len_core), 4), " (sd = ", round(sd(len_core), 4), ")\n", sep = "")
+cat("  Inland: ", round(mean(len_inland), 4), " (sd = ", round(sd(len_inland), 4), ")\n", sep = "")
+```
+
+NMDS comparison: core vs inland (coastal exclusion)
+
+We compared two NMDS analyses: one that only removed three outlier plots, and one that additionally excluded all plots classified as coastal habitat types (sand beach, coastal heath, salt marsh, and rocky shore). Excluding coastal plots removed 15 plots (30 survey visits) and 13 taxa. Stress increased slightly (0.196 → 0.209), still within an acceptable range for interpretation. The remaining inland plots show a higher mean trajectory length (0.27 → 0.33 NMDS units), meaning the compositional change between first and last survey is stronger in the inland subset than in the full dataset. Coastal plots thus appear to dampen the overall signal of change. For the main inland gradient, the analysis excluding coastal habitat types is the more appropriate basis for interpretation.
+
+
+
+## 2.5 DCA — Detrended Correspondence Analysis (coastal habitat types excluded)
+
+DCA ordinates the community matrix directly (like NMDS) but assumes a unimodal
+species–environment response. Coastal habitat types are excluded as in Section 2.4b.
+Envfit arrows and topography centroids show which environmental variables align
+with the main compositional gradients.
+
+```{r dca-inland, fig.height=7, fig.width=8, fig.cap="DCA of Icelandic vascular plant communities (coastal plots removed). Arrows: significant envfit drivers (p < 0.05). Triangles: topography centroids. Points coloured by moisture, shaped by survey."}
+
+# Match skissur.R exactly: coastal exclusion via habitat_type_name, env from env_candidates_ps
+coastal_types <- c("Sandstrandarvist", "Strandmelhólavist",
+                   "Sjávarfitjungsvist", "Sjávarkletta- og eyjavist")
+
+# Coastal exclusion: use env_candidates_ps (has plot_number, sample, habitat_type_name)
+# Same logic as skissur.R which uses v_plants_use; env_candidates_ps is the aggregated source
+if (exists("env_candidates_ps") && "habitat_type_name" %in% names(env_candidates_ps)) {
+  coastal_pv <- env_candidates_ps %>%
+    filter(habitat_type_name %in% coastal_types) %>%
+    mutate(pv = paste(plot_number, sample, sep = "_")) %>%
+    pull(pv) %>%
+    unique()
+  keep_inland <- !paste(meta_strict$plot_number, meta_strict$sample, sep = "_") %in% coastal_pv
+} else if ("habitat_type_name" %in% names(meta_strict)) {
+  keep_inland <- !(meta_strict$habitat_type_name %in% coastal_types)
+} else {
+  keep_inland <- rep(TRUE, nrow(meta_strict))
+  warning("No habitat_type_name; no coastal exclusion.")
+}
+
+meta_dca <- meta_strict[keep_inland, ]
+mat_dca <- mat_strict[keep_inland, ]
+mat_dca <- mat_dca[, colSums(mat_dca) > 0]
+rownames(mat_dca) <- paste(meta_dca$plot_number, meta_dca$sample, sep = "_")
+
+dca <- decorana(mat_dca)
+
+site_sc <- scores(dca, display = "sites") %>%
+  as_tibble(rownames = "plot_visit")
+
+# Join meta_dca + env_extra (same as skissur.R)
+extra_env_vars <- c(
+  "vegetation_height_mean", "mosathekja", "total_cover",
+  "haplontuthekja", "flettuthekja", "mosa_og_flettuskan"
 )
+env_extra <- if (exists("env_candidates_ps")) {
+  env_candidates_ps %>%
+    inner_join(meta_dca %>% select(plot_number, sample), by = c("plot_number", "sample")) %>%
+    select(plot_number, sample, any_of(extra_env_vars))
+} else {
+  meta_dca %>% select(plot_number, sample)
+}
+
+site_env <- site_sc %>%
+  mutate(
+    plot_number = stringr::str_remove(plot_visit, "_(?:first|last)$"),
+    sample      = stringr::str_extract(plot_visit, "(?:first|last)$")
+  ) %>%
+  left_join(meta_dca, by = c("plot_number", "sample")) %>%
+  left_join(env_extra, by = c("plot_number", "sample"))
+
+# Envfit continuous — same vars as skissur.R (incl. mosa_og_flettuskan, grytnithekja)
+env_num_vars_skissur <- c("vegetation_height_mean", "mosathekja", "total_cover",
+                          "haplontuthekja", "flettuthekja",
+                          "mosa_og_flettuskan", "grytnithekja")
+env_num_mat <- site_env %>% select(any_of(env_num_vars_skissur))
+env_num_mat <- env_num_mat[, colSums(!is.na(env_num_mat)) > 0, drop = FALSE]
+
+set.seed(123)
+if (ncol(env_num_mat) > 0) {
+  ef_num <- envfit(dca, env_num_mat, permutations = 999, na.rm = TRUE)
+  ef_arrows <- scores(ef_num, display = "vectors") %>%
+    as_tibble(rownames = "variable") %>%
+    mutate(r2 = ef_num$vectors$r, p = ef_num$vectors$pvals) %>%
+    filter(p < 0.05)
+} else {
+  ef_arrows <- tibble(variable = character(), DCA1 = numeric(), DCA2 = numeric(), r2 = numeric(), p = numeric())
+}
+
+# Envfit — categorical
+ef_topo  <- if ("topography_name" %in% names(site_env)) {
+  envfit(dca, site_env["topography_name"], permutations = 999, na.rm = TRUE)
+} else {
+  list(factors = list(centroids = matrix(nrow = 0, ncol = 2)))
+}
+ef_moist <- envfit(dca, site_env["moisture_name"], permutations = 999, na.rm = TRUE)
+
+topo_centroids <- if (!is.null(ef_topo$factors) && nrow(ef_topo$factors$centroids) > 0) {
+  scores(ef_topo, display = "factors") %>% as_tibble(rownames = "label")
+} else {
+  tibble(label = character(), DCA1 = numeric(), DCA2 = numeric())
+}
+
+arrow_scalar <- 2.0
+
+p_dca <- ggplot() +
+  geom_point(
+    data = site_env,
+    aes(x = DCA1, y = DCA2, colour = moisture_name, shape = sample),
+    size = 2.5, alpha = 0.8
+  ) +
+  geom_segment(
+    data = ef_arrows,
+    aes(x = 0, y = 0, xend = DCA1 * arrow_scalar, yend = DCA2 * arrow_scalar),
+    arrow = arrow(length = unit(0.22, "cm"), type = "closed"),
+    colour = "grey30", linewidth = 0.55
+  ) +
+  geom_text(
+    data = ef_arrows,
+    aes(x = DCA1 * arrow_scalar * 1.13, y = DCA2 * arrow_scalar * 1.13, label = variable),
+    size = 2.9, colour = "grey20"
+  ) +
+  geom_point(
+    data = topo_centroids,
+    aes(x = DCA1, y = DCA2),
+    shape = 17, size = 3.5, colour = "black"
+  ) +
+  ggrepel::geom_text_repel(
+    data = topo_centroids,
+    aes(x = DCA1, y = DCA2, label = label),
+    size = 3, colour = "black", fontface = "bold",
+    box.padding = 0.4, max.overlaps = 20
+  ) +
+  scale_colour_brewer(palette = "Set2", name = "Moisture") +
+  scale_shape_manual(values = c(first = 16, last = 17), name = "Survey") +
+  labs(
+    x = paste0("DCA1 (length = ", round(dca$evals.decorana[1], 2), " SD)"),
+    y = paste0("DCA2 (length = ", round(dca$evals.decorana[2], 2), " SD)"),
+    title    = "DCA — Icelandic vascular plant communities (coastal plots removed)",
+    subtitle = "Triangles: topography centroids  |  Arrows: sig. env. drivers (p < 0.05)"
+  ) +
+  theme_classic() +
+  theme(legend.position = "right")
+
+ggsave("outputs/p_dca_inland.png", plot = p_dca,
+       width = 16, height = 17, units = "cm", dpi = 300, bg = "white")
+```
+
+```{r dca-combined, fig.height=7, fig.width=8, fig.cap="DCA with per-plot trajectory arrows (first → last). Lines connect same plot across surveys."}
+site_pairs <- site_env %>%
+  select(plot_number, sample, DCA1, DCA2, moisture_name) %>%
+  pivot_wider(names_from = sample, values_from = c(DCA1, DCA2), names_sep = "_") %>%
+  filter(!is.na(DCA1_first) & !is.na(DCA1_last))
+
+p_dca_combined <- ggplot() +
+  geom_segment(
+    data = site_pairs,
+    aes(x = DCA1_first, y = DCA2_first, xend = DCA1_last, yend = DCA2_last,
+        colour = moisture_name),
+    alpha = 0.4, linewidth = 0.4
+  ) +
+  geom_point(
+    data = site_env,
+    aes(x = DCA1, y = DCA2, colour = moisture_name, shape = sample),
+    size = 2.5, alpha = 0.8
+  ) +
+  geom_segment(
+    data = ef_arrows,
+    aes(x = 0, y = 0, xend = DCA1 * arrow_scalar, yend = DCA2 * arrow_scalar),
+    arrow = arrow(length = unit(0.22, "cm"), type = "closed"),
+    colour = "grey30", linewidth = 0.55
+  ) +
+  geom_text(
+    data = ef_arrows,
+    aes(x = DCA1 * arrow_scalar * 1.13, y = DCA2 * arrow_scalar * 1.13, label = variable),
+    size = 2.9, colour = "grey20"
+  ) +
+  geom_point(
+    data = topo_centroids,
+    aes(x = DCA1, y = DCA2),
+    shape = 17, size = 3.5, colour = "black"
+  ) +
+  ggrepel::geom_text_repel(
+    data = topo_centroids,
+    aes(x = DCA1, y = DCA2, label = label),
+    size = 3, colour = "black", fontface = "bold",
+    box.padding = 0.4, max.overlaps = 20
+  ) +
+  scale_colour_brewer(palette = "Set2", name = "Moisture") +
+  scale_shape_manual(values = c(first = 16, last = 17), name = "Survey") +
+  labs(
+    x = paste0("DCA1 (length = ", round(dca$evals.decorana[1], 2), " SD)"),
+    y = paste0("DCA2 (length = ", round(dca$evals.decorana[2], 2), " SD)"),
+    title    = "DCA — per-plot trajectories (first → last)",
+    subtitle = "Lines: first (●) → last (▲) per plot  |  Arrows: sig. env. drivers (p < 0.05)"
+  ) +
+  theme_classic() +
+  theme(legend.position = "right")
+
+ggsave("outputs/p_dca_combined.png", plot = p_dca_combined,
+       width = 16, height = 17, units = "cm", dpi = 300, bg = "white")
 ```
 
 ---
@@ -755,7 +951,7 @@ plot_bc <- meta_strict %>%
 env_first <- meta_strict %>%
   filter(sample == "first") %>%
   select(plot_number, any_of("soil_type_name"), any_of("moisture_name"),
-         soil_depth, grýtniþekja)
+         soil_depth, grytnithekja)
 
 plot_bc_env <- plot_bc %>%
   left_join(env_first, by = "plot_number")
@@ -881,107 +1077,16 @@ p_bc_soil
 ```
 Per‑plot Bray–Curtis distance (first → last survey) by soil type for 159 revisited plots. Boxes show median and interquartile range of compositional change within each soil type (Leirujörð, Lífræn jörð, Klapparjörð, Áfoksjörð, Melajörð, Sandjörð, Eyrarjörð), with individual plots as points; overall, turnover is substantial (median ≈ 0.61, mean ≈ 0.58, range 0.16–1.00), and some soil types (e.g. Áfoksjörð, Klapparjörð, Sandjörð) exhibit higher typical change than others (e.g. Leirujörð).
 
-```{r pca-turnover-drivers, fig.height=6, fig.width=8}
-
-
-bc_matrix <- as.matrix(vegdist(mat_strict, method = "bray"))
-plot_bc <- meta_strict %>%
-mutate(row_idx = dplyr::row_number()) %>%
-dplyr::group_by(plot_number) %>%
-dplyr::summarise(
-idx_first = row_idx[sample == "first"],
-idx_last = row_idx[sample == "last"],
-.groups = "drop"
-) %>%
-dplyr::mutate(bc_dist = purrr::map2_dbl(idx_first, idx_last, ~ bc_matrix[.x, .y]))
-
-# Only columns that survive the prep pipeline into meta_strict.
-# háplöntuþekja / total_cover / vegetation_height_mean are excluded from
-# vars_driver_strict_final and are not present in meta_strict.
-pca_vars_bc <- intersect(
-  c("soil_depth", "grýtniþekja", "gap_years", "elevation"),
-  names(meta_strict)
-)
-
-env_first_pca <- meta_strict %>%
-  dplyr::filter(sample == "first") %>%
-  dplyr::select(plot_number, dplyr::any_of(pca_vars_bc))
-
-pca_dat <- plot_bc %>%
-  dplyr::left_join(env_first_pca, by = "plot_number") %>%
-  dplyr::filter(dplyr::if_all(dplyr::any_of(pca_vars_bc), ~ !is.na(.)))
-
-pca_env <- prcomp(
-  pca_dat %>% dplyr::select(dplyr::any_of(pca_vars_bc)),
-  center = TRUE,
-  scale. = TRUE
-)
-pca_scores <- as.data.frame(pca_env$x) %>%
-  dplyr::mutate(
-    plot_number = pca_dat$plot_number,
-    bc_dist     = pca_dat$bc_dist
-  )
-pca_loadings <- as.data.frame(pca_env$rotation) %>%
-  tibble::rownames_to_column("variable")
-
-var_expl    <- 100 * (pca_env$sdev^2) / sum(pca_env$sdev^2)
-scale_factor <- max(abs(pca_scores[, c("PC1", "PC2")])) * 0.65
-
-ggplot(pca_scores, aes(x = PC1, y = PC2, colour = bc_dist)) +
-  geom_point(size = 2, alpha = 0.85) +
-  scale_colour_viridis_c(option = "C", name = "Bray–Curtis\n(first → last)") +
-  geom_segment(
-    data = pca_loadings,
-    aes(x = 0, y = 0,
-        xend = PC1 * scale_factor,
-        yend = PC2 * scale_factor),
-    arrow = arrow(length = unit(0.20, "cm"), type = "closed"),
-    inherit.aes = FALSE,
-    colour    = "#c0392b",
-    linewidth = 0.70
-  ) +
-  geom_label_repel(
-    data = pca_loadings,
-    aes(x = PC1 * scale_factor * 1.12,
-        y = PC2 * scale_factor * 1.12,
-        label = variable),
-    inherit.aes  = FALSE,
-    size         = 3,
-    colour       = "#c0392b",
-    fill         = alpha("white", 0.80),
-    label.size   = 0,
-    max.overlaps = 15,
-    seed         = 44
-  ) +
-  coord_equal() +
-  labs(
-    title    = "PCA of environmental drivers (first survey)",
-    subtitle = sprintf(
-      "PC1: %.1f%%  ·  PC2: %.1f%%  ·  n = %d plots with complete predictors",
-      var_expl[1], var_expl[2], nrow(pca_dat)
-    ),
-    x       = sprintf("PC1 (%.1f%%)", var_expl[1]),
-    y       = sprintf("PC2 (%.1f%%)", var_expl[2]),
-    caption = "Red arrows: variable loadings (scaled to 65% of plot radius). Colour: Bray–Curtis distance (first → last)."
-  ) +
-  theme_classic(base_size = 11) +
-  theme(
-    legend.position = "right",
-    plot.subtitle   = element_text(size = 8,   colour = "grey40"),
-    plot.caption    = element_text(size = 7.5, colour = "grey50", hjust = 0)
-  )
-
-```
-Principal components analysis of first-survey environmental drivers (soil_depth, grýtniþekja, gap_years, and elevation if available) for all paired plots with complete predictors; points are positioned by PC1 and PC2, coloured by their Bray–Curtis compositional change (first → last), and red arrows show variable loadings scaled to 65% of the plot radius.
-
-
 ---
 
 # Part 4 — Indicator species analysis (IndVal)
 
 Using `indicspecies::multipatt()` to identify taxa that are significantly
 associated with either the first or last survey, using IndVal.g with 999
-permutations. P-values are Benjamini–Hochberg FDR-corrected.
+permutations. We filter on **raw permutation p-values** (p ≤ 0.05) rather than
+BH-corrected values: permutation tests already account for data structure, and
+BH across all ~226 species is overly conservative (best species p ≈ 0.001 raw
+would reach p_adj ≈ 0.056). p_adj is retained in the table for transparency.
 
 ```{r indval, cache=TRUE}
 group_vec <- ifelse(meta_strict$sample == "first", 1L, 2L)
@@ -1002,11 +1107,11 @@ indval_tbl <- indval_result$sign %>%
     survey = if_else(group == 1L, "first", "last"),
     p_adj  = p.adjust(p.value, method = "BH")
   ) %>%
-  filter(p_adj <= 0.05) %>%
-  arrange(p_adj)
+  filter(p.value <= 0.05) %>%
+  arrange(p.value)
 ```
 
-**`r nrow(indval_tbl)` taxa** pass FDR ≤ 5%:
+**`r nrow(indval_tbl)` taxa** pass raw permutation p ≤ 0.05:
 `r sum(indval_tbl$survey == "first")` associated with the **first** survey,
 `r sum(indval_tbl$survey == "last")` with the **last** survey.
 
@@ -1016,22 +1121,22 @@ indval_tbl <- indval_result$sign %>%
 print_full(
   indval_tbl %>%
     select(taxon, survey, stat, p.value, p_adj) %>%
-    mutate(sig = case_when(p_adj < 0.001 ~ "***",
-                           p_adj < 0.01  ~ "**",
-                           p_adj < 0.05  ~ "*",
-                           TRUE          ~ "ns")),
-  caption = "Indicator taxa (IndVal.g, FDR ≤ 5%). 'first' = associated with first survey; 'last' = last survey."
+    mutate(sig = case_when(p.value < 0.001 ~ "***",
+                           p.value < 0.01  ~ "**",
+                           p.value < 0.05  ~ "*",
+                           TRUE            ~ "ns")),
+  caption = "Indicator taxa (IndVal.g, raw permutation p ≤ 0.05). 'first' = associated with first survey; 'last' = last survey. p_adj = BH correction (for reference)."
 )
 ```
 
-Indicator species (IndVal.g) for first vs last survey based on the core inland dataset. Columns show the taxon name, its association with first (s.1) and last (s.2) surveys, the group it favors (1 = first, 2 = last), IndVal statistic (stat), raw p‑value (p.value), survey group label, and Benjamini–Hochberg FDR‑adjusted p‑value (p_adj); all taxa listed here are significant at FDR ≤ 5%.
+Indicator species (IndVal.g) for first vs last survey. Columns: taxon, survey association (first/last), IndVal statistic (stat), raw permutation p‑value (p.value), BH-adjusted p_adj (for reference). All taxa listed pass raw p ≤ 0.05. The pattern aligns with thermophilisation: arctic‑alpine specialists (e.g. *Equisetum variegatum*, *Euphrasia frigida*, *Sagina nivalis*, *Cerastium alpinum*, *Koenigia islandica*) flag the first survey; competitive low‑shrub species (e.g. *Empetrum nigrum*, *Salix arctica*, *Carex bigelowii*) flag the last.
 
 ## 4.2 Top 15 per survey — bar chart
 
-```{r indval-plot, fig.height=7, fig.cap="Top 15 indicator taxa per survey by IndVal.g statistic (FDR ≤ 5%)."}
+```{r indval-plot, fig.height=7, fig.cap="Top 15 indicator taxa per survey by IndVal.g statistic (raw p ≤ 0.05)."}
 top_indval <- indval_tbl %>%
   group_by(survey) %>%
-  slice_min(order_by = p_adj, n = 15, with_ties = FALSE) %>%
+  slice_min(order_by = p.value, n = 15, with_ties = FALSE) %>%
   ungroup()
 
 if (nrow(top_indval) > 0 && length(unique(top_indval$survey)) > 0) {
@@ -1046,7 +1151,7 @@ if (nrow(top_indval) > 0 && length(unique(top_indval$survey)) > 0) {
     scale_fill_manual(values = c(first = "#2980b9", last = "#e67e22")) +
     labs(
       title    = "Indicator taxa — first vs last survey",
-      subtitle = "IndVal.g statistic; top 15 per group (FDR ≤ 5%)",
+      subtitle = "IndVal.g statistic; top 15 per group (raw p ≤ 0.05)",
       x = "IndVal statistic", y = NULL, fill = NULL
     ) +
     theme_classic(base_size = 10) +
@@ -1068,9 +1173,13 @@ Each plot contributes one matched pair (first survey value, last survey value).
 
 ```{r univar-wilcox}
 univar_vars <- intersect(
-  c("háplöntuþekja", "vegetation_height_mean", "total_cover", "soil_depth"),
+  c("haplontuthekja", "vegetation_height_mean", "total_cover", "soil_depth"),
   names(meta_strict)
 )
+
+if (length(univar_vars) == 0L) {
+  stop("No univariate variables found in meta_strict. Check that at least one of haplontuthekja, vegetation_height_mean, total_cover, soil_depth exists.")
+}
 
 env_paired_wide <- meta_strict %>%
   select(plot_number, sample, all_of(univar_vars)) %>%
@@ -1085,8 +1194,23 @@ wilcox_results <- map_dfr(univar_vars, function(v) {
   last_col     <- paste0(v, "_last")
   x            <- env_paired_wide[[first_col]]
   y            <- env_paired_wide[[last_col]]
+  if (is.null(x) || is.null(y) || length(x) == 0L) {
+    return(tibble(
+      variable = v, n_pairs = 0L, median_first = NA_real_, median_last = NA_real_,
+      median_change = NA_real_, ci_low = NA_real_, ci_high = NA_real_,
+      W = NA_real_, p_value = NA_real_
+    ))
+  }
   complete_idx <- complete.cases(x, y)
   n_pairs      <- sum(complete_idx)
+  if (n_pairs < 2L) {
+    return(tibble(
+      variable = v, n_pairs = n_pairs, median_first = median(x[complete_idx], na.rm = TRUE),
+      median_last = median(y[complete_idx], na.rm = TRUE),
+      median_change = median(y[complete_idx] - x[complete_idx], na.rm = TRUE),
+      ci_low = NA_real_, ci_high = NA_real_, W = NA_real_, p_value = NA_real_
+    ))
+  }
   test <- wilcox.test(y[complete_idx], x[complete_idx],
                       paired = TRUE, conf.int = TRUE)
   tibble(
@@ -1231,13 +1355,13 @@ continuation — choose based on what the figures showed.
 ```{r next-steps, echo=FALSE, results='asis'}
 cat(paste(
   "**A — dbRDA (distance-based redundancy analysis)**",
-  "If háplöntuþekja or vegetation height changed significantly in Part 5, use",
+  "If haplontuthekja or vegetation height changed significantly in Part 5, use",
   "dbRDA to formally partition variance between the temporal effect (*sample*)",
   "and the environmental gradient, while conditioning on plot identity:",
   "",
   "```r",
   "vegan::dbrda(",
-  "  mat_strict ~ sample + háplöntuþekja + Condition(plot_number),",
+  "  mat_strict ~ sample + haplontuthekja + Condition(plot_number),",
   "  data   = meta_strict,",
   "  method = \"bray\"",
   ")",

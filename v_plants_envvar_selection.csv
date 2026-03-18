@@ -16,7 +16,7 @@
 ,project_id
 ,project_name
 ,project_number
-,project_descrtiption
+,project_description
 ,plot_area
 ,slope
 ,slope_aspect
@@ -80,24 +80,24 @@ x,topography_name
 ,moisture_id
 x,moisture_name
 ,group_type_subplot_id
-x,háplöntuþekja
-x,mosaþekja
-x,fléttuþekja
-x,engjaskófir
-x,breiskjufléttur
-x,Mosa- og fléttuskán
-x,kræðufléttur
-x,svarðmosi
-x,grýtniþekja
-x,sinuþekja
-,greinaþekja
-,barrþekja
-x,Racomitrium canescens
-x,Racomitrium ericoides
-x,Racomitrium lanuginosum
-x,Cladonia arbuscula
+x,haplontuthekja
+x,mosathekja
+x,flettuthekja
+x,engjaskofir
+x,breiskjuflettur
+x,mosa_og_flettuskan
+x,kraeduflottur
+x,svardmosi
+x,grytnithekja
+x,sinuthekja
+,greinathekja
+,barrthekja
+x,racomitrium_canescens
+x,racomitrium_ericoides
+x,racomitrium_lanuginosum
+x,cladonia_arbuscula
 ,autt
-,heildarþekja
+,heildarthekja
 ,taxon_id
 x,taxon_name
 ,scale_value_code

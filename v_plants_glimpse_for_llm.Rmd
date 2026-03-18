@@ -126,13 +126,13 @@ cat("--- diversity_py_core ---\n")
 dplyr::glimpse(diversity_py_core)
 cat("Rows:", nrow(diversity_py_core), "\n\n")
 
+cat("--- diversity_py_hybrid (S from core+outside, H/Simpson/J from core) ---\n")
+dplyr::glimpse(diversity_py_hybrid)
+cat("Rows:", nrow(diversity_py_hybrid), "\n\n")
+
 cat("--- change_core (paired diversity change) ---\n")
 dplyr::glimpse(change_core)
 cat("Rows:", nrow(change_core), "\n\n")
-
-cat("--- change_all ---\n")
-dplyr::glimpse(change_all)
-cat("Rows:", nrow(change_all), "\n\n")
 
 cat("--- var_catalog (first 20 rows) ---\n")
 print(head(var_catalog, 20))
