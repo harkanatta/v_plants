@@ -8,8 +8,6 @@
 cache/
 **/cache/
 
-# Local outputs (regenerable)
-outputs/
 
 # RStudio/Posit local state (can be huge)
 .local/

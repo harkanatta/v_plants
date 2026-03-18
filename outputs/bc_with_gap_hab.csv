@@ -1,0 +1,164 @@
+plot_number,bc,gap_years,moisture_name,habitat_type_name,area,topography_name,permafrost
+G03-1,1,22,Flói,NA,Grænifjallgarður,Jafnlendi,FALSE
+G20-3,1,22,Þurrlendi,Sanda- og vikravist,Grænifjallgarður,Jafnlendi,FALSE
+RN-28-03,1,12,Þurrlendi,Grasvíðiskriðuvist,Reykjanes,Jafnlendi,FALSE
+RN-15-03,0.9505330068511784,11,Þurrlendi,Eyðimelavist,Reykjanes,Jafnlendi,FALSE
+SK-58-01,0.9151943462897527,13,Þurrlendi,Ljónslappaskriðuvist,Skaftafell,Jafnlendi,FALSE
+HRM02,0.9052394917840321,23,Þurrlendi,Rústamýravist,Hofsafrétt,Hlíð,TRUE
+FV01-1,0.8980678150802632,18,Flói,Gulstararflóavist,Fagridalur,Jafnlendi,FALSE
+T05-1,0.8933648404949941,20,Flói,Rústamýravist,Guðlaugstungur,Jafnlendi,TRUE
+S22-1,0.8902378758271234,22,Þurrlendi,Víðikjarrvist,Skjálfandafljót,Jafnlendi,FALSE
+S30-1,0.8888044334498819,20,Mýri,Starungsmýravist,Skjálfandafljót,Jafnlendi,FALSE
+T02-3,0.8744607897356488,20,Deiglendi,Rústamýravist,Guðlaugstungur,Jafnlendi,TRUE
+KST52,0.8539931063095297,24,Deiglendi,Rekjuvist,Vesturöræfi Brúardalir,Jafnlendi,FALSE
+S21-2,0.8478655417251505,23,Mýri,Starungsmýravist,Skjálfandafljót,Jafnlendi,FALSE
+FG2-1,0.846283706011449,21,Deiglendi,Rekjuvist,Fagridalur,Jafnlendi,FALSE
+T05-4,0.8439763675630261,20,Flói,Rústamýravist,Guðlaugstungur,Jafnlendi,TRUE
+KSM17,0.8376867026555955,23,Mýri,Rekjuvist,Vesturöræfi Brúardalir,Jafnlendi,FALSE
+HRM04,0.8373458602466236,23,Þurrlendi,Rústamýravist,Hofsafrétt,Toppur,TRUE
+E07-1,0.8373104298725741,23,Þurrlendi,Starmóavist,Einhyrningur,Jafnlendi,FALSE
+FG2-5,0.8371191411103931,21,Þurrlendi,NA,Fagridalur,Hlíð,FALSE
+V09-2,0.8362062241634817,21,Þurrlendi,NA,Þjórsárver,Jafnlendi,TRUE
+RN-02,0.8314855875831485,11,Þurrlendi,NA,Reykjanes,Jafnlendi,FALSE
+V14-1,0.8306321264981584,23,Þurrlendi,Starmóavist,Þjórsárver,Jafnlendi,TRUE
+KMM14,0.8292131326522654,25,Mýri,Hengistararflóavist,Vesturöræfi Brúardalir,Jafnlendi,FALSE
+V16-4,0.8273821875017525,21,Þurrlendi,Starmóavist,Þjórsárver,Jafnlendi,TRUE
+KKB08,0.8256606294087576,25,Þurrlendi,NA,Vesturöræfi Brúardalir,Toppur,FALSE
+T05-3,0.8174314673053071,20,Mýri,Rústamýravist,Guðlaugstungur,Jafnlendi,TRUE
+G03-5,0.8171500630517023,23,Deiglendi,NA,Grænifjallgarður,Jafnlendi,FALSE
+S27-1,0.8148314937183502,23,Þurrlendi,Fjalldrapamóavist,Skjálfandafljót,Jafnlendi,FALSE
+KBA05,0.8129148964966315,25,Deiglendi,Starmóavist,Vesturöræfi Brúardalir,Jafnlendi,FALSE
+V16-2,0.8119063066827097,21,Þurrlendi,NA,Þjórsárver,Jafnlendi,TRUE
+T05-2,0.8118864806080254,20,Þurrlendi,Rústamýravist,Guðlaugstungur,Jafnlendi,TRUE
+KMM68,0.8040450099856467,24,Mýri,Tjarnastararflóavist,Vesturöræfi Brúardalir,Jafnlendi,FALSE
+U16,0.8013923325372799,22,Þurrlendi,Rústamýravist,Vesturöræfi Brúardalir,Jafnlendi,FALSE
+V06-4,0.7984109493707593,21,Mýri,Rústamýravist,Þjórsárver,Jafnlendi,TRUE
+KMM35,0.7981371201710185,24,Mýri,Hengistararflóavist,Vesturöræfi Brúardalir,Jafnlendi,FALSE
+KVV00,0.7913846747389057,25,Þurrlendi,NA,Vesturöræfi Brúardalir,Jafnlendi,FALSE
+SN-40-01,0.7893137384999688,12,Flói,Brokflóavist,Snæfellsnes,Jafnlendi,FALSE
+MY-78-01,0.7864706375136131,10,Mýri,Starungsmýravist,Mýrar,Jafnlendi,FALSE
+HRM10,0.7856722806543975,25,Mýri,Rústamýravist,Hofsafrétt,Hlíð,FALSE
+S21-3,0.7851239669421491,23,Mýri,NA,Skjálfandafljót,Jafnlendi,FALSE
+V02-1,0.7848945823325328,23,Mýri,Sandmýravist,Þjórsárver,Jafnlendi,FALSE
+G03-3,0.7818181818181817,22,Flói,NA,Grænifjallgarður,Jafnlendi,FALSE
+RN-24-02,0.7776731040979747,11,Þurrlendi,Eyðimelavist,Reykjanes,Jafnlendi,FALSE
+FT10-3,0.7693788978140915,21,Deiglendi,Víðimóavist,Fagridalur,Jafnlendi,FALSE
+HMM08,0.7616555394368791,24,Þurrlendi,Rústamýravist,Hofsafrétt,Jafnlendi,TRUE
+HRM07,0.755083865221909,24,Deiglendi,Rústamýravist,Hofsafrétt,Jafnlendi,FALSE
+KSD39,0.7524413348223363,25,Þurrlendi,Hélumosavist,Vesturöræfi Brúardalir,Jafnlendi,FALSE
+HRM06,0.7464390132242927,23,Þurrlendi,Rústamýravist,Hofsafrétt,Toppur,TRUE
+V16-3,0.7451976581022886,23,Þurrlendi,Starmóavist,Þjórsárver,Jafnlendi,TRUE
+HRM09,0.7424687301936336,25,Mýri,Rústamýravist,Hofsafrétt,Jafnlendi,FALSE
+V03-2,0.7408713166750962,20,Mýri,Rústamýravist,Þjórsárver,Jafnlendi,TRUE
+S27-2,0.7376742394839527,22,Deiglendi,NA,Skjálfandafljót,Jafnlendi,FALSE
+FD1-8,0.7369202838752271,21,Þurrlendi,Lyngmóavist á hálendi,Fargridalur,Jafnlendi,FALSE
+V06-1,0.7306089182175005,21,Þurrlendi,NA,Þjórsárver,Toppur,FALSE
+V02-4,0.727828490076208,23,Deiglendi,Rekjuvist,Þjórsárver,Jafnlendi,TRUE
+MY-37-01,0.722467021882983,12,Mýri,Brokflóavist,Mýrar,Jafnlendi,FALSE
+FA9-1,0.713644859813084,21,Þurrlendi,Víðimelavist,Fagridalur,Jafnlendi,FALSE
+SK-31-03,0.7114205043325866,13,Þurrlendi,Auravist,Skaftafell,Jafnlendi,FALSE
+V02-2,0.7092333519865698,23,Deiglendi,Hélumosavist,Þjórsárver,Jafnlendi,TRUE
+S21-1,0.7062580933001079,22,Mýri,Starungsmýravist,Skjálfandafljót,Jafnlendi,FALSE
+S25-2,0.7017983155019347,23,Þurrlendi,Eyðihraunavist,Skjálfandafljót,Jafnlendi,FALSE
+V13-2,0.6883096541777342,20,Deiglendi,Rekjuvist,Þjórsárver,Jafnlendi,FALSE
+HMM07,0.6832060352933929,24,Mýri,Rústamýravist,Hofsafrétt,Jafnlendi,TRUE
+KVV84,0.6815601335067717,24,Deiglendi,Rekjuvist,Vesturöræfi Brúardalir,Jafnlendi,FALSE
+V07-3,0.6777714321974744,21,Þurrlendi,Eyðimelavist,Þjórsárver,Jafnlendi,FALSE
+V07-2,0.6775631500742941,21,Þurrlendi,Grasmelavist,Þjórsárver,Jafnlendi,FALSE
+V05-4,0.6742039686202123,20,Deiglendi,Rekjuvist,Þjórsárver,Jafnlendi,TRUE
+HST06,0.6728491938935657,25,Þurrlendi,Rekjuvist,Hofsafrétt,Jafnlendi,FALSE
+T02-2,0.6657913583194079,22,Mýri,Hengistararflóavist,Guðlaugstungur,Jafnlendi,FALSE
+MM-10-01,0.6568930589615097,9,Flói,NA,Miklumýrar,Jafnlendi,FALSE
+KKB39,0.6568359107704942,24,Þurrlendi,NA,Vesturöræfi Brúardalir,Jafnlendi,FALSE
+V06-2,0.6535934700378261,23,Flói,Sandmýravist,Þjórsárver,Jafnlendi,FALSE
+V15-3,0.646526809697052,21,Deiglendi,Rekjuvist,Þjórsárver,Jafnlendi,FALSE
+V09-1,0.644415280388749,21,Þurrlendi,NA,Þjórsárver,Jafnlendi,FALSE
+E07-3,0.6440349175557712,23,Þurrlendi,Melagambravist,Einhyrningur,Jafnlendi,FALSE
+HRM01,0.6389263007670265,23,Mýri,Rústamýravist,Hofsafrétt,Jafnlendi,TRUE
+V18-1,0.62170790103751,21,Þurrlendi,NA,Þjórsárver,Jafnlendi,FALSE
+MS-30-02,0.6175351327634543,10,Þurrlendi,Lynghraunavist,Melrakkaslétta,Jafnlendi,FALSE
+SF-66-01,0.614769617704819,9,Deiglendi,Starungsmýravist,Skagafjörður,Jafnlendi,FALSE
+MM-110-01,0.6135206503167014,9,Mýri,NA,Miklumýrar,Jafnlendi,FALSE
+NV-41-01,0.6132888915445425,10,Mýri,Starungsmýravist,Norðvesturland,Jafnlendi,FALSE
+NV-42-05,0.6093723892394893,10,Mýri,Starungsmýravist,Norðvesturland,Jafnlendi,FALSE
+S26-1,0.6022843175379147,23,Deiglendi,Hélumosavist,Skjálfandafljót,Jafnlendi,FALSE
+RN-04-13,0.5955348327319108,11,Þurrlendi,Blómgresisvist,Reykjanes,Hlíð,FALSE
+SK-32-04,0.5931923491801105,13,Þurrlendi,NA,Skaftafell,Jafnlendi,FALSE
+AL-43-01,0.5879624449440028,10,Mýri,Starungsmýravist,Austurland,Jafnlendi,FALSE
+V14-3,0.574314853303688,21,Deiglendi,Rekjuvist,Þjórsárver,Jafnlendi,FALSE
+G09-1,0.5711515770443614,23,Þurrlendi,Melagambravist,Grænifjallgarður,Hlíð,FALSE
+G15-3,0.569662848637805,22,Þurrlendi,Sanda- og vikravist,Grænifjallgarður,Jafnlendi,FALSE
+NV-41-06,0.5560577173168653,10,Mýri,Starungsmýravist,Norðvesturland,Hlíð,FALSE
+OF-04,0.5553876554690222,9,Mýri,Gulstararflóavist,Reykjanes,Jafnlendi,FALSE
+NV-42-01,0.5291372790415807,12,Mýri,Starungsmýravist,Norðvesturland,Jafnlendi,FALSE
+OF-03,0.5267318071456579,11,Deiglendi,NA,Ölfus,Jafnlendi,FALSE
+VF-65-06,0.5245835473691935,9,Deiglendi,Sjávarfitjungsvist,Vestfirðir,Jafnlendi,FALSE
+SL-80-04,0.5211486483106592,12,Deiglendi,NA,Suðurland,Jafnlendi,FALSE
+MY-69-04,0.520485953312125,12,Mýri,Brokflóavist,Mýrar,Jafnlendi,FALSE
+V07-1,0.5147509463438081,23,Þurrlendi,Eyðimelavist,Þjórsárver,Jafnlendi,FALSE
+VF-03,0.5031032726072512,9,Mýri,NA,Vestfirðir,Jafnlendi,FALSE
+HF-65-09,0.5017849294503713,9,Mýri,Gulstararfitjavist,Hornafjörður,Jafnlendi,FALSE
+NV-40-01,0.5002708176269685,10,Flói,Gulstararflóavist,Norðvesturland,Jafnlendi,FALSE
+MS-42-04,0.4964349101508509,10,Mýri,Brokflóavist,Melrakkaslétta,Jafnlendi,FALSE
+VF-06,0.4944509345794392,9,Deiglendi,Sjávarfitjungsvist,Vestfirðir,Jafnlendi,FALSE
+VF-04,0.4866200544234026,12,Þurrlendi,Finnungsvist,Vestfirðir,Hlíð,FALSE
+RN-24-03,0.48089751364463307,10,Þurrlendi,Strandmelhólavist,Reykjanes,Jafnlendi,FALSE
+MS-65-01,0.4745969734868509,9,Deiglendi,Sjávarfitjungsvist,Melrakkaslétta,Jafnlendi,FALSE
+RN-65-02+,0.4704704097116843,9,Deiglendi,Sjávarfitjungsvist,Reykjanes,Jafnlendi,FALSE
+VF-10-08,0.46676215899472623,9,Deiglendi,Sjávarfitjungsvist,Vestfirðir,Jafnlendi,FALSE
+ID-12,0.46367028513702074,9,Flói,Starungsmýravist,Reykjanes,Jafnlendi,FALSE
+SL-41-02,0.46100749677972214,10,Deiglendi,Starungsmýravist,Suðurland,Jafnlendi,FALSE
+VF-65-02,0.4478266477492582,9,Flói,Gulstararfitjavist,Vestfirðir,Jafnlendi,FALSE
+RN-65-03,0.4471479487139926,9,Þurrlendi,Sjávarfitjungsvist,Reykjanes,Jafnlendi,FALSE
+VF-11,0.440766187799292,9,Flói,Gulstararflóavist,Vestfirðir,Jafnlendi,FALSE
+RN-25-04,0.4378937820896972,11,Þurrlendi,Fjalldrapamóavist,Reykjanes,Jafnlendi,FALSE
+RN-04,0.4347619261503533,9,Flói,Gulstararflóavist,Reykjanes,Jafnlendi,FALSE
+ID-19,0.43325559162029226,9,Mýri,Starungsmýravist,Reykjanes,Jafnlendi,FALSE
+SL-41-01,0.426926278290176,10,Mýri,NA,Suðurland,Jafnlendi,FALSE
+MY-100-01,0.42676096572858135,11,Mýri,Gulstararflóavist,Mýrar,Jafnlendi,FALSE
+MS-42-03,0.4230137825004018,10,Deiglendi,NA,Melrakkaslétta,Jafnlendi,FALSE
+VF-65-03,0.42140759544074446,9,Flói,Gulstararfitjavist,Vestfirðir,Jafnlendi,FALSE
+RN-03,0.4191684461751036,11,Þurrlendi,NA,Reykjanes,Jafnlendi,FALSE
+MS-42-02,0.4106782948828708,9,Mýri,Starungsmýravist,Melrakkaslétta,Jafnlendi,FALSE
+AL-10-01,0.40450646862901884,10,Deiglendi,Starungsmýravist,Austurland,Jafnlendi,FALSE
+MY-31-03,0.40180997835328475,12,Mýri,Brokflóavist,Mýrar,Jafnlendi,FALSE
+RN-05-02,0.3982600662098699,10,Þurrlendi,Mosahraunavist,Reykjanes,Hlíð,FALSE
+MS-65-04,0.3897345476309872,9,Deiglendi,Sjávarfitjungsvist,Melrakkaslétta,Jafnlendi,FALSE
+RN-01,0.3838451706886438,11,Þurrlendi,NA,Reykjanes,Jafnlendi,FALSE
+RN-04-14,0.3836026284667016,11,Þurrlendi,NA,Reykjanes,Jafnlendi,FALSE
+EY-127-04,0.3788812190519701,9,Mýri,Sjávarfitjungsvist,Eyjafjörður,Jafnlendi,FALSE
+MS-40-03,0.3785709996720569,10,Mýri,Brokflóavist,Melrakkaslétta,Jafnlendi,FALSE
+HF-65-06,0.37550654451670856,9,Deiglendi,Gulstararfitjavist,Hornafjörður,Jafnlendi,FALSE
+AL-42-04,0.3715886305887013,10,Mýri,Starungsmýravist,Austurland,Jafnlendi,FALSE
+VF-41-07,0.37012278047005187,12,Flói,Brokflóavist,Vestfirðir,Jafnlendi,FALSE
+AL-40-03,0.36674006184272234,10,Flói,Tjarnastararflóavist,Austurland,Jafnlendi,FALSE
+VF-40-06,0.3560205469104093,12,Flói,Brokflóavist,Vestfirðir,Jafnlendi,FALSE
+VF-40-02,0.34905783541494406,9,Flói,Gulstararflóavist,Vestfirðir,Jafnlendi,FALSE
+RN-25-07,0.34661989716981834,11,Þurrlendi,Fjalldrapamóavist,Reykjanes,Jafnlendi,FALSE
+HF-65-05,0.34266073255763674,9,Deiglendi,Gulstararfitjavist,Hornafjörður,Jafnlendi,FALSE
+MS-65-03,0.33957758168052704,9,Þurrlendi,Sjávarfitjungsvist,Melrakkaslétta,Jafnlendi,FALSE
+SN-42-05,0.3380822529628406,10,Mýri,Starungsmýravist,Snæfellsnes,Jafnlendi,FALSE
+HF-65-07,0.33666402434891995,9,Deiglendi,Gulstararfitjavist,Hornafjörður,Jafnlendi,FALSE
+HF-65-02,0.3304585740380868,9,Mýri,Gulstararfitjavist,Hornafjörður,Jafnlendi,FALSE
+MS-42-01,0.32144069355595106,9,Deiglendi,Starungsmýravist,Melrakkaslétta,Jafnlendi,FALSE
+RN-65-02,0.3208036292935839,9,Deiglendi,Sjávarfitjungsvist,Reykjanes,Jafnlendi,FALSE
+RN-23-02,0.31866110699574474,11,Þurrlendi,NA,Reykjanes,Jafnlendi,FALSE
+VF-12,0.31251654737763807,12,Deiglendi,Hrossanálarvist,Vestfirðir,Jafnlendi,FALSE
+HF-65-13,0.30468536116646383,9,Mýri,Starungsmýravist,Hornafjörður,Jafnlendi,FALSE
+HF-65-08,0.30023919981003006,9,Mýri,Gulstararfitjavist,Hornafjörður,Jafnlendi,FALSE
+AL-24-03,0.2931172307338621,10,Deiglendi,Starungsmýravist,Austurland,Jafnlendi,FALSE
+HF-65-03,0.29279271546144675,9,Deiglendi,Sjávarfitjungsvist,Hornafjörður,Jafnlendi,FALSE
+OF-01,0.29055890346212926,9,Flói,Gulstararflóavist,Ölfus,Jafnlendi,FALSE
+SK-EY-02,0.2813210718876693,9,Flói,Gulstararflóavist,Skagafjörður,Jafnlendi,FALSE
+EY-127-02,0.2782335940909005,9,Mýri,Sjávarfitjungsvist,Eyjafjörður,Jafnlendi,FALSE
+SL-42-05,0.27387313330593227,10,Flói,Gulstararflóavist,Suðurland,Jafnlendi,FALSE
+AL-40-01,0.25982272223642716,10,Flói,Tjarnastararflóavist,Austurland,Jafnlendi,FALSE
+OF-02,0.2302797572446064,9,Flói,Gulstararflóavist,Ölfus,Jafnlendi,FALSE
+RN-07-02,0.20744875921926567,10,Þurrlendi,Mosahraunavist,Reykjanes,Jafnlendi,FALSE
+RN-23-04,0.19720113074903428,12,Þurrlendi,NA,Reykjanes,Jafnlendi,FALSE
+NV-41-08,0.19306646460780136,10,Mýri,Starungsmýravist,Norðvesturland,Jafnlendi,FALSE
+RN-65-01,0.19229620096067657,9,Mýri,Sjávarfitjungsvist,Reykjanes,Jafnlendi,FALSE
+HF-65-01,0.18148521269201628,9,Deiglendi,Sjávarfitjungsvist,Hornafjörður,Jafnlendi,FALSE
+MS-40-01,0.1700311610892833,10,Flói,Tjarnastararflóavist,Melrakkaslétta,Jafnlendi,FALSE
+RN-07-03,0.15701790920449804,10,Þurrlendi,Mosahraunavist,Reykjanes,Jafnlendi,FALSE
+RN-17-03,0.10288065843621397,12,Þurrlendi,Mosahraunavist,Reykjanes,Jafnlendi,FALSE
