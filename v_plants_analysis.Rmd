@@ -13,6 +13,11 @@ output:
     code_folding: hide
     fig_width: 9
     fig_height: 6
+  word_document:
+    toc: true
+    toc_depth: 3
+    fig_width: 9
+    fig_height: 6
 ---
 
 ```{r setup, include=FALSE}
@@ -55,18 +60,14 @@ set.seed(123)
 ```
 
 ```{r bootstrap-required-objects}
-# Knit runs in a clean session. Load from cache if available; otherwise run full prep.
+# Always source the prep script. NMDS caching is handled inside prep itself —
+# it checks for outputs/nmds_strict_cache.rds and loads or recomputes as needed,
+# so sourcing prep is fast when the cache exists.
 prep_script <- "v_plants_prep.R"
-prep_cache <- "outputs/nmds_strict_cache.rds"
-if (file.exists(prep_cache)) {
-  prep_objs <- readRDS(prep_cache)
-  list2env(prep_objs, envir = .GlobalEnv)
-} else {
-  if (!file.exists(prep_script)) {
-    stop("Required script not found: ", prep_script)
-  }
-  source(prep_script, local = .GlobalEnv)
+if (!file.exists(prep_script)) {
+  stop("Required script not found: ", prep_script)
 }
+source(prep_script, local = .GlobalEnv)
 ```
 
 ---
@@ -102,13 +103,19 @@ nmds_scores <- as.data.frame(scores(nmds_strict, display = "sites")) %>%
   bind_cols(meta_strict %>% select(plot_number, sample))
 
 # Build envfit data including gap_years in addition to the strict drivers
+# Exploratory columns (gap_years, grytnithekja) use any_of() so they are silently
+# dropped if absent from meta_strict (meta_strict only carries vars_driver_strict_final
+# + extra_env_exploratory; grytnithekja is available in env_candidates_ps / v_plants_use
+# but is not pulled into meta_strict by default).
 env_all <- meta_strict %>%
-  select(all_of(c(
-    vars_driver_strict_final,        # robust core drivers
-    "gap_years",                     # time gap effect
-    #"habitat_type_name",             # broader habitat grouping
-    "grytnithekja"                   # exploratory rock cover
-  ))) %>%
+  select(
+    all_of(vars_driver_strict_final),          # required core drivers
+    any_of(c(
+      "gap_years",                             # time gap effect
+      #"habitat_type_name",                   # broader habitat grouping
+      "grytnithekja"                           # exploratory rock cover (if present)
+    ))
+  ) %>%
   mutate(
     across(where(is.character), as.factor),
     across(where(is.logical),   as.factor)
@@ -228,9 +235,9 @@ meta_outliers <- meta_strict %>%
   filter(plot_number %in% outlier_plots) %>%
   select(
     plot_number, sample,
-    soil_depth, grytnithekja,
-    any_of(c("vegetation_height_mean", "soil_type_name")),
-    moisture_name, topography_name
+    any_of(c("soil_depth", "grytnithekja",
+             "vegetation_height_mean", "soil_type_name",
+             "moisture_name", "topography_name"))
   )
 
 print_full(
@@ -518,10 +525,14 @@ traj_wide <- as.data.frame(scores(nmds_core, display = "sites")) %>%
     names_sep   = "_"
   ) %>%
   left_join(
-    meta_core %>% filter(sample == "first") %>% select(plot_number, soil_type_name),
+    meta_core %>% filter(sample == "first") %>%
+      select(plot_number, any_of("soil_type_name"), any_of("moisture_name")),
     by = "plot_number"
   ) %>%
-  filter(complete.cases(NMDS1_first, NMDS2_first, NMDS1_last, NMDS2_last))
+  filter(complete.cases(NMDS1_first, NMDS2_first, NMDS1_last, NMDS2_last)) %>%
+  mutate(traj_colour = if ("soil_type_name" %in% names(.)) soil_type_name
+                       else if ("moisture_name" %in% names(.)) moisture_name
+                       else "unknown")
 
 # --- Dominant species scores (>1% relative abundance in mat_core) ---
 rel_abund     <- colSums(mat_core) / sum(mat_core)
@@ -549,7 +560,7 @@ p_nmds_traj <-  ggplot() +
     data = traj_wide,
     aes(x = NMDS1_first, y = NMDS2_first,
         xend = NMDS1_last, yend = NMDS2_last,
-        colour = soil_type_name),
+        colour = traj_colour),
     arrow     = arrow(length = unit(0.18, "cm"), type = "closed"),
     linewidth = 0.45, alpha = 0.70
   ) +
@@ -571,10 +582,10 @@ p_nmds_traj <-  ggplot() +
                        nrow(traj_wide), nmds_core$stress),
     x        = "NMDS1",
     y        = "NMDS2",
-    colour   = "Soil type",
+    colour   = if ("soil_type_name" %in% names(traj_wide)) "Soil type" else "Moisture",
     linetype = "Survey ellipse",
     caption  = paste(
-      "Arrows: first → last survey per plot, coloured by soil type (from first survey).",
+      "Arrows: first → last survey per plot, coloured by soil type or moisture (from first survey).",
       "Dashed/solid ellipses (70% normal): first/last survey community clouds.",
       "Italic text: taxa > 1% relative abundance in the core matrix.",
       sep = "\n"
@@ -641,10 +652,14 @@ traj_wide_inland <- as.data.frame(scores(nmds_core_inland, display = "sites")) %
     names_sep   = "_"
   ) %>%
   left_join(
-    meta_core_inland %>% filter(sample == "first") %>% select(plot_number, soil_type_name),
+    meta_core_inland %>% filter(sample == "first") %>%
+      select(plot_number, any_of("soil_type_name"), any_of("moisture_name")),
     by = "plot_number"
   ) %>%
-  filter(complete.cases(NMDS1_first, NMDS2_first, NMDS1_last, NMDS2_last))
+  filter(complete.cases(NMDS1_first, NMDS2_first, NMDS1_last, NMDS2_last)) %>%
+  mutate(traj_colour = if ("soil_type_name" %in% names(.)) soil_type_name
+                       else if ("moisture_name" %in% names(.)) moisture_name
+                       else "unknown")
 
 # --- Dominant species (>1% relative abundance in mat_core_inland) ---
 rel_abund_inland   <- colSums(mat_core_inland) / sum(mat_core_inland)
@@ -670,7 +685,7 @@ p_nmds_traj_inland <- ggplot() +
     data = traj_wide_inland,
     aes(x = NMDS1_first, y = NMDS2_first,
         xend = NMDS1_last, yend = NMDS2_last,
-        colour = soil_type_name),
+        colour = traj_colour),
     arrow     = arrow(length = unit(0.18, "cm"), type = "closed"),
     linewidth = 0.45, alpha = 0.70
   ) +

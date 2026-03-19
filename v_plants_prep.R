@@ -36,7 +36,7 @@ if (file.exists(taxon_exclude_path)) {
     col_names = c("exclude_flag", "taxon_name"),
     show_col_types = FALSE
   )
-
+  
   # Build a simple character vector of taxon names to drop
   # (any non-empty flag in column 1 is treated as "exclude")
   taxa_exclude <- taxon_exclude_tbl %>%
@@ -58,7 +58,7 @@ if (file.exists(raw_cols_sheet_path)) {
     col_names = c("flag", "variable"),
     show_col_types = FALSE
   )
-
+  
   # Take all variables where the flag column is non-empty
   # (this allows using "x", "1", etc. as a generic "selected" marker)
   vars_env_from_sheet <- raw_cols_tbl %>%
@@ -515,7 +515,7 @@ vars_driver_strict_final <- c(
 #vars_driver_strict_final <- intersect(vars_driver_strict_final, names(env_candidates_ps))
 
 # Add extra exploratory vars here (do NOT add to vars_driver_strict_final)
-extra_env_exploratory <- c("habitat_type_name", "gap_years")
+extra_env_exploratory <- c("habitat_type_name", "gap_years", "grytnithekja")
 
 env_strict <- env_candidates_ps %>%
   select(
@@ -584,7 +584,7 @@ bd_test_strict <- vegan::permutest(bd_strict, permutations = 999)
 
 # Keep this explicit for downstream reporting consistency
 driver_final <- c(
-  "h??pl??ntu??ekja",
+  "haplontuthekja",
   "soil_depth",
   "total_cover",
   "vegetation_height_mean",
