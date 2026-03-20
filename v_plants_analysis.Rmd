@@ -88,6 +88,49 @@ source(prep_script, local = .GlobalEnv)
 
 ---
 
+## Analytical strategy — why NMDS first, then RDA?
+
+The distinction comes down to what question each method is designed to answer.
+
+**NMDS** is unconstrained — the ordination axes are determined entirely by the
+species composition data. The community structure emerges first, and you then
+ask whether environmental variables happen to correlate with it (envfit). The
+question is: *what is the main structure of variation in these communities, and
+does anything we measured line up with it?* Nothing is assumed about which
+variables matter or how they relate to composition. This is the right starting
+point for a dataset spanning many habitat types across Iceland, where you don't
+yet know which gradients dominate.
+
+**RDA/dbRDA** is constrained — the axes are forced to be linear combinations of
+the predictors you specify. It can only show you the variation in composition
+that is mathematically explainable by those specific variables. The question
+shifts to: *how much of the community variance do these predictors formally
+account for, and can I partition it cleanly?*
+
+**The core argument for using both in sequence in this dataset.** The paired
+temporal design means there are two distinct signals sitting on top of each
+other: the baseline ecological gradient (wet vs dry, deep soil vs shallow, etc.)
+and the change between first and last survey. NMDS with PERMANOVA establishes
+that a temporal signal exists at all — that communities at the last survey are
+measurably different from their own baseline. That is a prerequisite worth
+demonstrating on its own before asking what drove the change.
+
+RDA/dbRDA with `Condition(plot_number)` then partitions the temporal component
+away from the among-plot gradient. By conditioning on plot identity you remove
+the dominant baseline variation — the fact that a heath plot and a wetland plot
+are just compositionally different — and look only at within-plot change over
+time. That is where a variable like `haplontuthekja` (vascular plant cover)
+becomes a legitimate predictor rather than a circular one. You are not asking
+"do plots with more vascular cover have different communities?" (which is
+trivially true), you are asking "did plots whose vascular cover *changed* show
+corresponding compositional shifts?"
+
+In short: NMDS describes the landscape of variation; RDA partitions it into
+sources. Using RDA without NMDS first would risk constraining the ordination to
+variables that miss the dominant gradients entirely.
+
+---
+
 # Part 1 — Preliminary NMDS (all plots)
 
 ## 1.1 Ordination plot
@@ -170,11 +213,23 @@ arrow_df_all <- arrow_df_all %>%
   mutate(xend = NMDS1 * ordi_radius_all,
          yend = NMDS2 * ordi_radius_all)
 
+# One label per plot at midpoint between first and last survey
+nmds_plot_labels <- nmds_scores %>%
+  group_by(plot_number) %>%
+  summarise(NMDS1 = mean(NMDS1), NMDS2 = mean(NMDS2), .groups = "drop")
+
 pnmds <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2)) +
   geom_line(aes(group = plot_number),
             colour = "grey70", linewidth = 0.3, alpha = 0.6) +
   geom_point(aes(colour = sample, shape = sample),
              size = 2.0, alpha = 0.85) +
+  geom_text_repel(
+    data = nmds_plot_labels,
+    aes(x = NMDS1, y = NMDS2, label = plot_number),
+    size = 1.7, colour = "grey35",
+    segment.size = 0.2, segment.colour = "grey60",
+    max.overlaps = Inf, seed = 77, inherit.aes = FALSE
+  ) +
   geom_segment(
     data = arrow_df_all %>% filter(kind == "numeric"),
     aes(x = 0, y = 0, xend = xend, yend = yend),
@@ -194,14 +249,76 @@ pnmds <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2)) +
                      labels  = c(first = "First survey", last = "Last survey")) +
   labs(
     title    = "NMDS of plant community composition (Bray–Curtis) — all plots",
-    subtitle = sprintf("%d plots · stress = %.3f · paired PERMANOVA R² = 2.7%%, p = 0.001",
-                       length(unique(nmds_scores$plot_number)), nmds_strict$stress),
+    subtitle = sprintf(
+      "%d plots · stress = %.3f · paired PERMANOVA R² = %.1f%%, p = %.3f",
+      length(unique(nmds_scores$plot_number)),
+      nmds_strict$stress,
+      perm_strict[1, "R2"] * 100,
+      perm_strict[1, "Pr(>F)"]
+    ),
     x = "NMDS1", y = "NMDS2", colour = NULL, shape = NULL,
     caption = "Arrows: envfit vectors (p ≤ 0.05). Lines connect first and last survey of the same plot."
   ) +
   theme_classic(base_size = 11) +
   theme(legend.position = "bottom")
 ```
+
+```{r permanova-results}
+# Paired PERMANOVA: does community composition differ between first and last survey?
+# strata = plot_number ensures permutations are constrained within plots (paired design).
+# Row 1 = predictor (labelled "Model" in vegan ≥ 2.6, "sample" in older versions)
+# Row 2 = Residual — use row index rather than name for version robustness
+perm_r2  <- round(perm_strict[1, "R2"] * 100, 1)
+perm_p   <- perm_strict[1, "Pr(>F)"]
+perm_f   <- round(perm_strict[1, "F"], 2)
+perm_df1 <- perm_strict[1, "Df"]
+perm_df2 <- perm_strict[2, "Df"]
+
+cat(sprintf(
+  "Paired PERMANOVA (adonis2, Bray–Curtis, strata = plot):\n  F(%d, %d) = %.2f,  R² = %.1f%%,  p = %.3f\n",
+  perm_df1, perm_df2, perm_f, perm_r2, perm_p
+))
+
+print(perm_strict)
+```
+
+**What the test did.** Each plot was surveyed twice — once early, once late.
+The test asks: are the two surveys from the same plot more similar to each
+other than they are to surveys of other plots at different times? Permutations
+were constrained within each plot (`strata = plot_number`), so the test is
+genuinely paired — it can only detect change *within* plots, not just
+differences *between* them.
+
+**F(`r perm_df1`, `r perm_df2`) = `r perm_f`.** The F-statistic compares the
+variance explained by survey timing (first vs last) to the residual variance.
+`r perm_f` is well above 1, meaning the temporal effect is real and not lost in
+noise. The degrees of freedom tell you the design: 1 for the predictor (survey:
+first or last), `r perm_df2` for the residual
+(`r length(unique(meta_strict$plot_number))` plots × 2 surveys − 2).
+
+**R² = `r perm_r2`%.** This is the important one to interpret carefully. It
+does *not* mean the temporal change is weak or unimportant. It means that out
+of all the compositional variation in the dataset — the enormous differences
+between a highland heath, a wetland, a lava field, and a birch shrubland —
+`r perm_r2`% is attributable to the first-vs-last contrast. The remaining
+~`r 100 - perm_r2`% is the baseline variation *between* plots, which dwarfs
+the within-plot change. This is completely normal and expected in a paired
+vegetation study spanning many habitat types. The paired design was chosen
+precisely because it strips out that dominant between-plot variation and focuses
+on the within-plot signal.
+
+**p = `r perm_p`.** With 999 permutations this is the minimum achievable
+p-value, meaning none of the 999 random reshufflings produced an F as large as
+`r perm_f`. The temporal signal is statistically unambiguous.
+
+**In plain terms.** Icelandic plant communities changed measurably between
+their first and last survey. The change is real and consistent enough to survive
+a rigorous paired permutation test. It is small relative to the total variation
+in the dataset, which is expected — a heath is still a heath after ten years,
+it just has a slightly different species mix. The R² is not a measure of
+ecological importance; it is a measure of how much of the total dataset variance
+this one contrast accounts for. The F-statistic and p-value are what establish
+whether the change is real.
 
 ## 1.2 Outlier identification
 
@@ -438,12 +555,24 @@ arrow_df_core <- arrow_df_core %>%
   mutate(xend = ax1 * ordi_radius_core,
          yend = ax2 * ordi_radius_core)
 
+# One label per plot at midpoint between first and last survey
+core_plot_labels <- site_scores %>%
+  group_by(plot_number) %>%
+  summarise(NMDS1 = mean(NMDS1), NMDS2 = mean(NMDS2), .groups = "drop")
+
 # --- Plot ---
 p_nmds_core <- ggplot(site_scores, aes(x = NMDS1, y = NMDS2)) +
   geom_line(aes(group = plot_number),
             colour = "grey60", linewidth = 0.30, alpha = 0.55) +
   geom_point(aes(colour = sample, shape = sample),
              size = 2.0, alpha = 0.85) +
+  geom_text_repel(
+    data = core_plot_labels,
+    aes(x = NMDS1, y = NMDS2, label = plot_number),
+    size = 1.7, colour = "grey35",
+    segment.size = 0.2, segment.colour = "grey60",
+    max.overlaps = Inf, seed = 77, inherit.aes = FALSE
+  ) +
   geom_segment(
     data = arrow_df_core,
     aes(x = 0, y = 0, xend = xend, yend = yend),
@@ -754,35 +883,107 @@ We compared two NMDS analyses: one that only removed three outlier plots, and on
 
 ## 2.5 DCA — Detrended Correspondence Analysis (coastal habitat types excluded)
 
+### Why DCA and not PCA?
+
+**In plain language.** PCA assumes that each species responds to the
+environment in a straight line: as soil moisture increases, the species steadily
+becomes more or less common. Plant species do not work like that. Most have a
+preferred range and are absent at both extremes — a hump-shaped response.
+When PCA is applied to this kind of data it creates a mathematical artefact
+known as the arch or horseshoe: plots from opposite ends of a gradient (both
+with near-zero overlap in species) end up curling towards each other, making
+them look more similar than they really are. DCA was built to fix exactly this
+problem. It works with hump-shaped responses from the start and then rescales
+its axes so that one unit always equals the same amount of species turnover,
+making distances between plots genuinely comparable.
+
+**In scientific terms.** PCA is a linear method that maximises variance in
+Euclidean space and performs well only when species responses along gradients
+are linear — a condition rarely met in vegetation data (Legendre & Legendre
+2012). When gradient lengths exceed roughly 2–3 standard deviations (SD) of
+species turnover, the Euclidean distance metric severely distorts
+compositional relationships and produces the arch artefact (Gauch 1982).
+DCA (Hill & Gauch 1980; implemented as `decorana` in *vegan*) addresses
+this by (i) using weighted averaging / reciprocal averaging as its
+underlying algorithm, which accommodates unimodal species response curves,
+and (ii) applying non-linear rescaling so that axis lengths are expressed
+in SD units of species turnover rather than arbitrary eigenvalue-scaled
+units. A DCA axis 1 length > 3 SD indicates that the dataset spans more
+than three complete species replacements — a turnover too large for PCA to
+represent faithfully. The Icelandic vegetation data here consistently
+produces axis 1 lengths in this range (see axis labels below), confirming
+that DCA is the appropriate ordination method and PCA would yield a
+distorted, uninterpretable biplot.
+
 DCA ordinates the community matrix directly (like NMDS) but assumes a unimodal
 species–environment response. Coastal habitat types are excluded as in Section 2.4b.
 Envfit arrows and topography centroids show which environmental variables align
 with the main compositional gradients.
 
+### Reading the DCA plot
+
+**The axes and SD units.** Each point is a plot–survey combination. The
+horizontal and vertical positions reflect how similar or different the plant
+communities are: two points close together share most of the same species in
+similar proportions, two points far apart have largely different communities.
+The axis labels report length in *standard deviation (SD) units of species
+turnover*. One SD corresponds roughly to the distance over which an average
+species goes from its peak abundance to near absence. An axis 1 length of, say,
+3.5 SD means that as you move from left to right across the plot, the community
+changes by 3.5 complete species replacements — the plots at the far left and far
+right share almost nothing in common. This is why SD is a more meaningful unit
+than an arbitrary eigenvalue: it tells you directly how much ecological distance
+the axis represents.
+
+**The arrows.** The grey arrows (envfit vectors) show continuous environmental
+variables — things like vegetation height, total cover, or moss cover. An arrow
+points in the direction of steepest increase in that variable across the
+ordination space. A long arrow means the variable is tightly correlated with
+community composition (it explains a large share of where plots end up); a short
+arrow means the relationship is weak. The angle between two arrows shows how
+correlated those two variables are with each other. Only arrows with a
+statistically significant fit (permutation test, p < 0.05) are shown.
+
+**The triangles (topography centroids).** Topography is a categorical variable
+(e.g. flat, slope, ridge), so it cannot be drawn as a single arrow. Instead,
+each triangle marks the *centroid* — the average DCA position — of all plots
+belonging to that topography class. A triangle sitting far from the centre of
+the cloud means plots with that topography type tend to have a consistently
+distinct community composition. Triangles close together indicate that those
+topography classes support similar plant communities.
+
+**The dashed connecting lines.** Each dashed line links the first and last
+survey of the same plot. A short line means the community changed little over
+time; a long line means substantial turnover. The direction of the line shows
+what kind of change occurred — whether the community moved towards wetter,
+drier, taller-vegetation, or other conditions along the environmental gradients
+represented by the arrows.
+
 ```{r dca-inland, fig.height=7, fig.width=8, fig.cap="DCA of Icelandic vascular plant communities (coastal plots removed). Arrows: significant envfit drivers (p < 0.05). Triangles: topography centroids. Points coloured by moisture, shaped by survey."}
 
-# Match skissur.R exactly: coastal exclusion via habitat_type_name, env from env_candidates_ps
+# Start from meta_core / mat_core — these already exclude the NMDS-identified
+# outlier plots (outlier_plots), which are the confirmed coastal sites.
+# Then apply an additional habitat_type_name filter for any remaining coastal
+# plots not caught by the distance-based outlier detection.
 coastal_types <- c("Sandstrandarvist", "Strandmelhólavist",
                    "Sjávarfitjungsvist", "Sjávarkletta- og eyjavist")
 
-# Coastal exclusion: use env_candidates_ps (has plot_number, sample, habitat_type_name)
-# Same logic as skissur.R which uses v_plants_use; env_candidates_ps is the aggregated source
 if (exists("env_candidates_ps") && "habitat_type_name" %in% names(env_candidates_ps)) {
   coastal_pv <- env_candidates_ps %>%
     filter(habitat_type_name %in% coastal_types) %>%
     mutate(pv = paste(plot_number, sample, sep = "_")) %>%
     pull(pv) %>%
     unique()
-  keep_inland <- !paste(meta_strict$plot_number, meta_strict$sample, sep = "_") %in% coastal_pv
-} else if ("habitat_type_name" %in% names(meta_strict)) {
-  keep_inland <- !(meta_strict$habitat_type_name %in% coastal_types)
+  keep_inland <- !paste(meta_core$plot_number, meta_core$sample, sep = "_") %in% coastal_pv
+} else if ("habitat_type_name" %in% names(meta_core)) {
+  keep_inland <- !(meta_core$habitat_type_name %in% coastal_types)
 } else {
-  keep_inland <- rep(TRUE, nrow(meta_strict))
-  warning("No habitat_type_name; no coastal exclusion.")
+  keep_inland <- rep(TRUE, nrow(meta_core))
+  message("No habitat_type_name available; outlier_plots already excluded via NMDS.")
 }
 
-meta_dca <- meta_strict[keep_inland, ]
-mat_dca <- mat_strict[keep_inland, ]
+meta_dca <- meta_core[keep_inland, ]
+mat_dca  <- mat_core[keep_inland, ]
 mat_dca <- mat_dca[, colSums(mat_dca) > 0]
 rownames(mat_dca) <- paste(meta_dca$plot_number, meta_dca$sample, sep = "_")
 
@@ -846,11 +1047,34 @@ topo_centroids <- if (!is.null(ef_topo$factors) && nrow(ef_topo$factors$centroid
 
 arrow_scalar <- 2.0
 
+# One label per plot at centroid of its two survey points
+dca_plot_labels <- site_env %>%
+  group_by(plot_number) %>%
+  summarise(DCA1 = mean(DCA1), DCA2 = mean(DCA2), .groups = "drop")
+
+# Paired first/last positions for dashed connector lines
+dca_pairs_inland <- site_env %>%
+  select(plot_number, sample, DCA1, DCA2) %>%
+  pivot_wider(names_from = sample, values_from = c(DCA1, DCA2), names_sep = "_") %>%
+  filter(!is.na(DCA1_first) & !is.na(DCA1_last))
+
 p_dca <- ggplot() +
+  geom_segment(
+    data = dca_pairs_inland,
+    aes(x = DCA1_first, y = DCA2_first, xend = DCA1_last, yend = DCA2_last),
+    linetype = "dashed", linewidth = 0.25, colour = "grey70", alpha = 0.6
+  ) +
   geom_point(
     data = site_env,
     aes(x = DCA1, y = DCA2, colour = moisture_name, shape = sample),
     size = 2.5, alpha = 0.8
+  ) +
+  ggrepel::geom_text_repel(
+    data = dca_plot_labels,
+    aes(x = DCA1, y = DCA2, label = plot_number),
+    size = 1.7, colour = "grey35",
+    segment.size = 0.2, segment.colour = "grey60",
+    max.overlaps = Inf, seed = 77, inherit.aes = FALSE
   ) +
   geom_segment(
     data = ef_arrows,
@@ -895,6 +1119,11 @@ site_pairs <- site_env %>%
   pivot_wider(names_from = sample, values_from = c(DCA1, DCA2), names_sep = "_") %>%
   filter(!is.na(DCA1_first) & !is.na(DCA1_last))
 
+# Labels at midpoint of each plot's first→last trajectory
+dca_traj_labels <- site_pairs %>%
+  mutate(DCA1 = (DCA1_first + DCA1_last) / 2,
+         DCA2 = (DCA2_first + DCA2_last) / 2)
+
 p_dca_combined <- ggplot() +
   geom_segment(
     data = site_pairs,
@@ -906,6 +1135,13 @@ p_dca_combined <- ggplot() +
     data = site_env,
     aes(x = DCA1, y = DCA2, colour = moisture_name, shape = sample),
     size = 2.5, alpha = 0.8
+  ) +
+  ggrepel::geom_text_repel(
+    data = dca_traj_labels,
+    aes(x = DCA1, y = DCA2, label = plot_number),
+    size = 1.7, colour = "grey35",
+    segment.size = 0.2, segment.colour = "grey60",
+    max.overlaps = Inf, seed = 77, inherit.aes = FALSE
   ) +
   geom_segment(
     data = ef_arrows,
@@ -966,7 +1202,7 @@ plot_bc <- meta_strict %>%
 env_first <- meta_strict %>%
   filter(sample == "first") %>%
   select(plot_number, any_of("soil_type_name"), any_of("moisture_name"),
-         soil_depth, grytnithekja)
+         any_of("soil_depth"), any_of("grytnithekja"))
 
 plot_bc_env <- plot_bc %>%
   left_join(env_first, by = "plot_number")
@@ -1259,7 +1495,15 @@ print_full(wilcox_results,
 ## 5.2 Change distributions
 
 ```{r univar-plot, fig.cap="Distribution of per-plot change (last − first) for each community descriptor. Significance stars are BH-adjusted."}
-env_paired_long_change <- map_dfr(univar_vars, function(v) {
+# Guard: only loop over variables whose paired columns actually exist in env_paired_wide.
+# A stale cache can produce env_paired_wide that is missing columns added since the last
+# cache invalidation — clearing cache/v_plants_* fixes that permanently.
+univar_vars_present <- univar_vars[
+  paste0(univar_vars, "_first") %in% names(env_paired_wide) &
+  paste0(univar_vars, "_last")  %in% names(env_paired_wide)
+]
+
+env_paired_long_change <- map_dfr(univar_vars_present, function(v) {
   first_col <- paste0(v, "_first")
   last_col  <- paste0(v, "_last")
   env_paired_wide %>%
@@ -1267,28 +1511,36 @@ env_paired_long_change <- map_dfr(univar_vars, function(v) {
       plot_number = plot_number,
       variable    = v,
       change      = .data[[last_col]] - .data[[first_col]]
-    )
+    ) %>%
+    filter(!is.na(change))   # filter here: 'change' is always present in this scope
 }) %>%
-  filter(!is.na(change)) %>%
-  left_join(wilcox_results %>% select(variable, p_adj, sig), by = "variable")
+  { if ("variable" %in% names(.))
+      left_join(., wilcox_results %>% select(variable, p_adj, sig), by = "variable")
+    else . }
 
-y_top <- max(env_paired_long_change$change, na.rm = TRUE) * 1.07
+if (nrow(env_paired_long_change) == 0) {
+  message("univar-plot: no paired change data available — skipping plot.")
+} else {
+  y_top <- max(env_paired_long_change$change, na.rm = TRUE) * 1.07
 
-ggplot(env_paired_long_change, aes(x = variable, y = change)) +
-  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_violin(fill = "#bdc3c7", alpha = 0.5, trim = TRUE) +
-  geom_boxplot(width = 0.18, fill = "white", outlier.size = 0.8) +
-  geom_text(
-    data = env_paired_long_change %>% distinct(variable, sig),
-    aes(y = y_top, label = sig),
-    size = 5, colour = "#c0392b"
-  ) +
-  labs(
-    title    = "Change in continuous community descriptors (last − first)",
-    subtitle = "Paired Wilcoxon; * p<0.05, ** p<0.01, *** p<0.001 (BH-adjusted)",
-    x = NULL, y = "Change (last − first)"
-  ) +
-  theme_classic(base_size = 11)
+  print(
+    ggplot(env_paired_long_change, aes(x = variable, y = change)) +
+      geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+      geom_violin(fill = "#bdc3c7", alpha = 0.5, trim = TRUE) +
+      geom_boxplot(width = 0.18, fill = "white", outlier.size = 0.8) +
+      geom_text(
+        data = env_paired_long_change %>% distinct(variable, sig),
+        aes(y = y_top, label = sig),
+        size = 5, colour = "#c0392b"
+      ) +
+      labs(
+        title    = "Change in continuous community descriptors (last − first)",
+        subtitle = "Paired Wilcoxon; * p<0.05, ** p<0.01, *** p<0.001 (BH-adjusted)",
+        x = NULL, y = "Change (last − first)"
+      ) +
+      theme_classic(base_size = 11)
+  )
+}
 ```
 
 ---

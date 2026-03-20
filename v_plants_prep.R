@@ -292,58 +292,102 @@ bc_with_gap <- bc_per_plot %>%
   left_join(gap_tbl, by = "plot_number")
 
 # ------------------------------------------------------------------------------
-# 2b) Plot-level diversity (hybrid: S from core+outside, cover-based from core)
+# 2b) Plot-level diversity (all indices from combined subplot + outside cover)
 # ------------------------------------------------------------------------------
 # Design:
-#   - S (richness): valid_subplots_main + outside_subplot_codes (full species list)
-#   - Shannon H', Simpson 1-D, Pielou's J: valid_subplots_main only, from cover
-build_diversity_py <- function(dat) {
-  dat %>%
-    mutate(
-      cover_num = coalesce(
-        scale_value_value,
-        case_when(
-          scale_value_code %in% c("???", "??", "\u2022") ~ 0.25,
-          scale_value_code == "+" ~ 0.75,
-          scale_value_code == "1" ~ 3,
-          scale_value_code == "2" ~ 15,
-          scale_value_code == "3" ~ 37.5,
-          scale_value_code == "4" ~ 62.5,
-          scale_value_code == "5" ~ 87.5,
-          TRUE ~ NA_real_
-        )
-      )
-    ) %>%
-    filter(!is.na(cover_num), cover_num > 0) %>%
-    group_by(plot_number, year, taxon_name) %>%
-    summarise(cover = mean(cover_num, na.rm = TRUE), .groups = "drop") %>%
-    tidyr::pivot_wider(names_from = taxon_name, values_from = cover, values_fill = 0) %>%
-    {
-      mats <- as.matrix(dplyr::select(., -plot_number, -year))
-      tibble(
-        plot_number = .$plot_number,
-        year        = .$year,
-        S           = vegan::specnumber(mats),
-        Shannon     = vegan::diversity(mats, index = "shannon"),
-        Simpson     = vegan::diversity(mats, index = "simpson")
-      ) %>%
-        mutate(Pielou_J = Shannon / log(pmax(S, 1)))
-    }
+#   - Subplot species (subplot_number 1–8): measured BB cover, treated as the
+#     best estimate of plot-level cover density.
+#   - Outside-subplot species (subplot_number in outside_subplot_codes): recorded
+#     as present in the plot but not within any subplot. Assigned MIN_BB_COVER
+#     (the lowest Braun–Blanquet value, 0.25 %) to enter the abundance vector.
+#   - S, Shannon H', Simpson 1–D, Pielou's J: all computed from this combined
+#     cover set in a single pass.
+#
+# Geometry (for documentation / sanity):
+#   Subplot:  33 cm × 100 cm = 0.33 m²
+#   Plot:     400 m²  (always)
+#   Subplots per plot: 6 or 8  → total subplot area 1.98 or 2.64 m²
+#   Subplot cover is taken as representative of plot-level density; outside-
+#   subplot species receive MIN_BB_COVER as a conservative presence indicator.
+
+PLOT_AREA_M2    <- 400
+SUBPLOT_W_CM    <- 33
+SUBPLOT_L_CM    <- 100
+SUBPLOT_AREA_M2 <- (SUBPLOT_W_CM / 100) * (SUBPLOT_L_CM / 100)   # 0.33 m²
+MIN_BB_COVER    <- 0.25   # •/??/... codes → lowest Braun–Blanquet value
+
+bb_to_cover <- function(code, value) {
+  coalesce(
+    value,
+    case_when(
+      code %in% c("...", "??", "\u2022") ~ 0.25,
+      code == "+"  ~ 0.75,
+      code == "1"  ~ 3,
+      code == "2"  ~ 15,
+      code == "3"  ~ 37.5,
+      code == "4"  ~ 62.5,
+      code == "5"  ~ 87.5,
+      TRUE         ~ NA_real_
+    )
+  )
 }
 
-v_plants_div_core <- v_plants_raw_all %>%
-  filter(is.na(subplot_number) | subplot_number %in% valid_subplots_main) %>%
-  mutate(
-    field_date_parsed = parse_date_time(
-      field_date,
-      orders = c("Y-m-d", "d-m-Y", "d/m/Y", "Y/m/d", "d.m.Y", "Y.m.d"),
-      quiet = TRUE
-    ),
-    year = year(field_date_parsed)
+build_diversity_plot <- function(dat_all) {
+  # dat_all: plant records filtered to subplot_number %in%
+  #          c(valid_subplots_main, outside_subplot_codes) or NA,
+  #          with columns: plot_number, year, taxon_name, subplot_number,
+  #                        scale_value_code, scale_value_value.
+  
+  # --- n_subplots per plot-year (6 or 8 depending on plot design) ---
+  n_subplots_py <- dat_all %>%
+    filter(subplot_number %in% valid_subplots_main) %>%
+    distinct(plot_number, year, subplot_number) %>%
+    count(plot_number, year, name = "n_subplots")
+  
+  # --- Subplot species: measured BB cover ---
+  subplot_covers <- dat_all %>%
+    filter(subplot_number %in% valid_subplots_main) %>%
+    mutate(cover_num = bb_to_cover(scale_value_code, scale_value_value)) %>%
+    filter(!is.na(cover_num), cover_num > 0) %>%
+    group_by(plot_number, year, taxon_name) %>%
+    summarise(cover = mean(cover_num, na.rm = TRUE), .groups = "drop")
+  
+  # --- Outside-subplot species: present in plot but absent from subplots ---
+  # Only species not already captured by subplot_covers receive MIN_BB_COVER.
+  outside_covers <- dat_all %>%
+    filter(subplot_number %in% outside_subplot_codes) %>%
+    filter(!is.na(taxon_name)) %>%
+    distinct(plot_number, year, taxon_name) %>%
+    anti_join(subplot_covers, by = c("plot_number", "year", "taxon_name")) %>%
+    mutate(cover = MIN_BB_COVER)
+  
+  # --- Combined cover table → diversity indices ---
+  all_covers <- bind_rows(subplot_covers, outside_covers)
+  
+  all_wide <- all_covers %>%
+    tidyr::pivot_wider(
+      names_from  = taxon_name,
+      values_from = cover,
+      values_fill = 0
+    )
+  
+  mats <- all_wide %>%
+    select(-plot_number, -year) %>%
+    as.matrix()
+  
+  tibble(
+    plot_number = all_wide$plot_number,
+    year        = all_wide$year,
+    S           = vegan::specnumber(mats),
+    Shannon     = vegan::diversity(mats, index = "shannon"),
+    Simpson     = vegan::diversity(mats, index = "simpson")
   ) %>%
-  filter(!is.na(plot_number), !is.na(taxon_name), !is.na(year))
+    mutate(Pielou_J = Shannon / log(pmax(S, 1))) %>%
+    left_join(n_subplots_py, by = c("plot_number", "year"))
+}
 
-v_plants_div_all <- v_plants_raw_all %>%
+# Input: all records with subplot_number in subplots OR outside codes (or NA)
+v_plants_div_input <- v_plants_raw_all %>%
   filter(
     is.na(subplot_number) |
       subplot_number %in% c(valid_subplots_main, outside_subplot_codes)
@@ -358,27 +402,8 @@ v_plants_div_all <- v_plants_raw_all %>%
   ) %>%
   filter(!is.na(plot_number), !is.na(taxon_name), !is.na(year))
 
-diversity_py_core <- build_diversity_py(v_plants_div_core) 
-diversity_py_all  <- build_diversity_py(v_plants_div_all) 
-
-# Assert S source: v_plants_div_all must contain only valid_subplots_main + outside_subplot_codes
-allowed_for_S <- c(valid_subplots_main, outside_subplot_codes)
-subplot_codes_in_all <- v_plants_div_all %>%
-  filter(!is.na(subplot_number)) %>%
-  pull(subplot_number) %>%
-  unique()
-stopifnot(
-  "S must be from valid_subplots_main + outside_subplot_codes only" =
-    all(subplot_codes_in_all %in% allowed_for_S)
-)
-
-# Hybrid: S from core+outside; Shannon, Simpson, Pielou's J from core (cover-based)
-diversity_py_hybrid <- diversity_py_core %>%
-  select(plot_number, year, Shannon, Simpson, Pielou_J) %>%
-  left_join(
-    diversity_py_all %>% select(plot_number, year, S),
-    by = c("plot_number", "year")
-  )
+diversity_py        <- build_diversity_plot(v_plants_div_input)
+diversity_py_hybrid <- diversity_py   # backward-compatible alias
 
 revisited_yrs <- plot_years %>%
   select(plot_number, year_first, year_last) %>%
@@ -421,9 +446,10 @@ pair_div <- function(div_tbl) {
 
 change_core <- pair_div(diversity_py_hybrid)
 
-# Total plot richness (core subplots + outside recordings) per plot-year.
-# Used as an ordination arrow only; not used for delta_S or Pielou_J calculations.
-S_total_py <- diversity_py_all %>% select(plot_number, year, S_total = S)
+# S_total_py: total plot richness (subplots + outside) per plot-year.
+# All indices in diversity_py already include outside-subplot species,
+# so S_total equals S here. Kept for ordination-arrow backward compatibility.
+S_total_py <- diversity_py %>% select(plot_number, year, S_total = S)
 
 # ------------------------------------------------------------------------------
 # 3) Variable roles and strict env set
@@ -515,7 +541,7 @@ vars_driver_strict_final <- c(
 #vars_driver_strict_final <- intersect(vars_driver_strict_final, names(env_candidates_ps))
 
 # Add extra exploratory vars here (do NOT add to vars_driver_strict_final)
-extra_env_exploratory <- c("habitat_type_name", "gap_years", "grytnithekja")
+extra_env_exploratory <- c("habitat_type_name", "gap_years")
 
 env_strict <- env_candidates_ps %>%
   select(
