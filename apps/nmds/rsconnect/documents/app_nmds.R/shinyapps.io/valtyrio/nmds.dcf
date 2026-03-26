@@ -1,0 +1,12 @@
+name: nmds
+title: nmds
+username: valtyrio
+account: valtyrio
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 16955120
+bundleId: 11744582
+url: https://valtyrio.shinyapps.io/nmds/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

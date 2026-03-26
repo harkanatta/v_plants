@@ -1,0 +1,12 @@
+name: sp_comp
+title: sp_comp
+username: valtyrio
+account: valtyrio
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 16955121
+bundleId: 11744583
+url: https://valtyrio.shinyapps.io/sp_comp/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

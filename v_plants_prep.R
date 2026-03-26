@@ -568,6 +568,13 @@ meta_strict <- community_wide_strict %>%
   left_join(env_strict_cc, by = c("plot_number", "sample")) %>%
   left_join(gap_tbl, by = "plot_number")
 
+# Add area (county) to meta_strict
+area_lookup <- v_plants_use %>%
+  group_by(plot_number) %>%
+  summarise(area = first(na.omit(area)), .groups = "drop")
+
+meta_strict <- meta_strict %>%
+  left_join(area_lookup, by = "plot_number")
 
 mat_strict <- community_wide_strict %>%
   mutate(rn = paste(plot_number, sample, sep = "_")) %>%
@@ -608,6 +615,68 @@ perm_strict <- vegan::adonis2(
 bd_strict <- vegan::betadisper(vegan::vegdist(mat_strict, method = "bray"), group = meta_strict$sample)
 bd_test_strict <- vegan::permutest(bd_strict, permutations = 999)
 
+
+# ------------------------------------------------------------------------------
+# 4b) Inland core matrix + NMDS + envfit (coastal habitat types excluded)
+# ------------------------------------------------------------------------------
+coastal_types <- c("Sandstrandarvist", "Strandmelhólavist",
+                   "Sjávarfitjungsvist", "Sjávarkletta- og eyjavist")
+
+# Detect outlier plots (same logic as Rmd)
+nmds_scores_tmp <- as.data.frame(vegan::scores(nmds_strict, display = "sites")) %>%
+  bind_cols(meta_strict %>% select(plot_number, sample))
+centroid_tmp <- colMeans(nmds_scores_tmp[, c("NMDS1", "NMDS2")])
+outlier_plots <- nmds_scores_tmp %>%
+  mutate(dist_c = sqrt((NMDS1 - centroid_tmp[1])^2 + (NMDS2 - centroid_tmp[2])^2)) %>%
+  arrange(desc(dist_c)) %>%
+  distinct(plot_number, .keep_all = TRUE) %>%
+  slice_head(n = 3) %>%
+  pull(plot_number)
+
+# Exclude outlier plots AND coastal habitat type plots
+coastal_plots <- meta_strict %>%
+  filter(habitat_type_name %in% coastal_types) %>%
+  distinct(plot_number) %>%
+  pull(plot_number)
+
+exclude_inland <- union(outlier_plots, coastal_plots)
+keep_inland    <- !meta_strict$plot_number %in% exclude_inland
+
+meta_core_inland <- meta_strict[keep_inland, ]
+mat_core_inland  <- mat_strict[keep_inland, ]
+mat_core_inland  <- mat_core_inland[, colSums(mat_core_inland) > 0]
+
+# NMDS — cache separately from nmds_strict
+nmds_inland_cache <- file.path(base_dir, "outputs", "nmds_inland_cache.rds")
+if (file.exists(nmds_inland_cache)) {
+  nmds_core_inland <- readRDS(nmds_inland_cache)
+} else {
+  nmds_core_inland <- vegan::metaMDS(
+    mat_core_inland,
+    distance = "bray",
+    k        = 2,
+    trymax   = 200,
+    trace    = FALSE
+  )
+  saveRDS(nmds_core_inland, nmds_inland_cache)
+}
+
+# envfit on inland matrix — full driver set + habitat + area
+env_core_inland <- meta_core_inland %>%
+  select(all_of(vars_driver_strict_final),
+         any_of(c("habitat_type_name", "area"))) %>%
+  mutate(
+    across(where(is.character), as.factor),
+    across(where(is.logical),   as.factor)
+  )
+
+fit_core_inland <- vegan::envfit(
+  nmds_core_inland,
+  env_core_inland,
+  permutations = 999,
+  na.rm        = TRUE
+)
+
 # Keep this explicit for downstream reporting consistency
 driver_final <- c(
   "haplontuthekja",
@@ -616,4 +685,25 @@ driver_final <- c(
   "vegetation_height_mean",
   "soil_type_name",
   "moisture_name"
+)
+
+
+"area" %in% names(meta_strict)
+"area" %in% names(meta_core_inland)
+exists("fit_core_inland")
+nrow(meta_core_inland)
+
+source("v_plants_prep.R")
+
+saveRDS(
+  list(
+    community_long_paired = community_long_paired,
+    meta_strict           = meta_strict,
+    meta_core_inland      = meta_core_inland,
+    mat_core_inland       = mat_core_inland,
+    nmds_core_inland      = nmds_core_inland,
+    fit_core_inland       = fit_core_inland,
+    outlier_plots         = outlier_plots
+  ),
+  file = "v_plants_app_data.rds"
 )
