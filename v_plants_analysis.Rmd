@@ -1328,6 +1328,109 @@ p_bc_soil
 ```
 Per‑plot Bray–Curtis distance (first → last survey) by soil type for 159 revisited plots. Boxes show median and interquartile range of compositional change within each soil type (Leirujörð, Lífræn jörð, Klapparjörð, Áfoksjörð, Melajörð, Sandjörð, Eyrarjörð), with individual plots as points; overall, turnover is substantial (median ≈ 0.61, mean ≈ 0.58, range 0.16–1.00), and some soil types (e.g. Áfoksjörð, Klapparjörð, Sandjörð) exhibit higher typical change than others (e.g. Leirujörð).
 
+## 3.4 Compositional turnover vs. survey gap
+
+Does compositional change accumulate with time, or has it already saturated? This
+section regresses per-plot Bray–Curtis dissimilarity against the number of years
+between first and last survey. A positive, non-saturating slope supports continued
+monitoring (more time = more detectable change); a flat or saturating relationship
+suggests additional visits are unlikely to resolve uncertainty about direction or
+magnitude of change.
+
+```{r bc-gap-prep}
+plot_bc_gap <- plot_bc %>%
+  left_join(gap_tbl, by = "plot_number") %>%
+  filter(!is.na(gap_years), !is.na(bc_dist))
+
+gap_range <- range(plot_bc_gap$gap_years)
+gap_median <- median(plot_bc_gap$gap_years)
+```
+
+Survey gap ranges from **`r gap_range[1]`** to **`r gap_range[2]`** years
+(median `r gap_median` years, n = `r nrow(plot_bc_gap)` plots).
+
+```{r bc-gap-model}
+lm_gap  <- lm(bc_dist ~ gap_years, data = plot_bc_gap)
+lm_sum  <- summary(lm_gap)
+lm_coef <- coef(lm_gap)
+
+slope_est <- round(lm_coef["gap_years"], 4)
+r2        <- round(lm_sum$r.squared, 3)
+f_stat    <- round(lm_sum$fstatistic[1], 2)
+p_lm      <- pf(lm_sum$fstatistic[1],
+                lm_sum$fstatistic[2],
+                lm_sum$fstatistic[3],
+                lower.tail = FALSE)
+
+cor_gap <- cor.test(plot_bc_gap$gap_years, plot_bc_gap$bc_dist,
+                    method = "spearman", exact = FALSE)
+
+cat(sprintf(
+  "Linear regression: BC ~ gap_years\n  slope = %.4f per year,  R² = %.3f,  F(1,%d) = %.2f,  p = %.4f\n\nSpearman correlation: rho = %.3f,  p = %.4f\n",
+  slope_est, r2,
+  lm_sum$fstatistic[3], f_stat, p_lm,
+  cor_gap$estimate, cor_gap$p.value
+))
+```
+
+```{r bc-gap-plot, fig.cap="Per-plot Bray–Curtis dissimilarity (first → last) as a function of survey gap (years). Grey band = 95% CI of linear fit; blue curve = loess smoother. A positive, non-saturating loess curve supports continued monitoring."}
+ggplot(plot_bc_gap, aes(x = gap_years, y = bc_dist)) +
+  geom_point(alpha = 0.45, size = 1.8, colour = "#555555") +
+  geom_smooth(method = "lm",   se = TRUE,  colour = "#c0392b",
+              linewidth = 0.9, linetype = "dashed", fill = "#c0392b", alpha = 0.12) +
+  geom_smooth(method = "loess", se = FALSE, colour = "#2980b9",
+              linewidth = 1.1, span = 0.8) +
+  annotate(
+    "text",
+    x     = max(plot_bc_gap$gap_years) * 0.05,
+    y     = max(plot_bc_gap$bc_dist, na.rm = TRUE) * 0.97,
+    label = sprintf("slope = %.4f/yr\nR² = %.3f\np = %.4f\nSpearman ρ = %.3f",
+                    slope_est, r2, p_lm, cor_gap$estimate),
+    hjust = 0, vjust = 1, size = 3.2, colour = "#333333",
+    fontface = "plain", family = "mono"
+  ) +
+  labs(
+    title    = "Does compositional turnover accumulate with time?",
+    subtitle = sprintf("BC dissimilarity vs. survey gap — %d paired plots", nrow(plot_bc_gap)),
+    x        = "Survey gap (years)",
+    y        = "Bray–Curtis dissimilarity (first → last)"
+  ) +
+  theme_classic(base_size = 11)
+```
+
+```{r bc-gap-interpret, results='asis'}
+if (p_lm < 0.05 && slope_est > 0) {
+  cat(sprintf(
+    "> **Turnover accumulates with time** (slope = +%.4f BC units/year, R² = %.3f, p = %.4f). ",
+    slope_est, r2, p_lm
+  ))
+  cat("The linear fit is positive and significant, and if the loess curve is also non-saturating, ")
+  cat("this constitutes a scientific — not merely motivated — argument for continued monitoring: ")
+  cat("longer intervals produce detectably greater compositional change.\n\n")
+  cat(sprintf(
+    "Practical implication: a plot resurveyed after %.0f additional years is expected to show, on average, ",
+    10
+  ))
+  cat(sprintf("%.3f more BC dissimilarity than it would show today.\n", slope_est * 10))
+} else if (p_lm >= 0.05) {
+  cat(sprintf(
+    "> **No significant linear relationship** between survey gap and BC dissimilarity (slope = %.4f, p = %.4f). ",
+    slope_est, p_lm
+  ))
+  cat("This does not rule out continued change, but it means the current data cannot demonstrate ")
+  cat("that longer gaps produce greater turnover. Inspect the loess curve for non-linearity ")
+  cat("(e.g. rapid early change followed by a plateau). If the curve saturates, additional ")
+  cat("visits to already-resurveyed plots may add little new information.\n")
+} else {
+  cat(sprintf(
+    "> **Negative relationship** between survey gap and BC dissimilarity (slope = %.4f, p = %.4f) — ",
+    slope_est, p_lm
+  ))
+  cat("plots with longer intervals show *less* change. This may reflect habitat effects ")
+  cat("confounded with gap length; consider fitting `bc_dist ~ gap_years + soil_type_name` to partial out habitat.\n")
+}
+```
+
 ---
 
 # Part 4 — Indicator species analysis (IndVal)
