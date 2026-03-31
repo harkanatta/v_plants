@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Shiny — NMDS Biplot (v4)",
+      "runtimeExecutable": "Rscript",
+      "runtimeArgs": ["-e", "shiny::runApp('apps/nmds/app_nmds.R', port=3838, launch.browser=FALSE)"],
+      "port": 3838
+    },
+    {
+      "name": "Shiny — Species Composition Explorer (v7)",
+      "runtimeExecutable": "Rscript",
+      "runtimeArgs": ["-e", "shiny::runApp('apps/species-comp/sp_comp/app.R', port=3839, launch.browser=FALSE)"],
+      "port": 3839
+    },
+    {
+      "name": "Shiny — NMDS Explorer (first/last pairs)",
+      "runtimeExecutable": "Rscript",
+      "runtimeArgs": ["-e", "shiny::runApp('shiny/app.R', port=3840, launch.browser=FALSE)"],
+      "port": 3840
+    },
+    {
+      "name": "Docker — RStudio Server",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["run", "--rm", "-p", "8787:8787", "-e", "DISABLE_AUTH=true", "v_plants"],
+      "port": 8787
+    }
+  ]
+}
