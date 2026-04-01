@@ -647,10 +647,17 @@ mat_core_inland  <- mat_strict[keep_inland, ]
 mat_core_inland  <- mat_core_inland[, colSums(mat_core_inland) > 0]
 
 # NMDS — cache separately from nmds_strict
+# If data or inland filters change row count, a saved RDS can disagree with
+# mat_core_inland; envfit then errors (logical keep length != nrow(env)).
 nmds_inland_cache <- file.path(base_dir, "outputs", "nmds_inland_cache.rds")
-if (file.exists(nmds_inland_cache)) {
-  nmds_core_inland <- readRDS(nmds_inland_cache)
+nmds_core_inland <- if (file.exists(nmds_inland_cache)) readRDS(nmds_inland_cache) else NULL
+n_inland_mat <- nrow(mat_core_inland)
+n_inland_nmds <- if (!is.null(nmds_core_inland)) {
+  nrow(as.matrix(vegan::scores(nmds_core_inland, display = "sites")))
 } else {
+  NA_integer_
+}
+if (is.null(nmds_core_inland) || n_inland_mat != n_inland_nmds) {
   nmds_core_inland <- vegan::metaMDS(
     mat_core_inland,
     distance = "bray",
@@ -686,14 +693,6 @@ driver_final <- c(
   "soil_type_name",
   "moisture_name"
 )
-
-
-"area" %in% names(meta_strict)
-"area" %in% names(meta_core_inland)
-exists("fit_core_inland")
-nrow(meta_core_inland)
-
-source("v_plants_prep.R")
 
 saveRDS(
   list(

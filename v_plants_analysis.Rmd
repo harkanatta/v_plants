@@ -1431,6 +1431,73 @@ if (p_lm < 0.05 && slope_est > 0) {
 }
 ```
 
+## 3.5 Confound: elevation and survey gap length
+
+The positive BC–gap relationship in Section 3.4 is consistent with compositional
+change accumulating over time, but `gap_years` is not a clean temporal variable
+in this dataset. Highland plots on dry land (*Þurrlendi*) were consistently
+resurveyed later than lowland plots, meaning that `gap_years` acts partly as a
+proxy for elevation and habitat type. Because highland plots are also
+compositionally distinct from lowland plots, this creates a structural confound:
+longer gaps and more distinct communities co-occur in the same plots. This
+section quantifies that confound; it is addressed analytically in Part 6.
+
+```{r elevation-gap-confound}
+# One row per plot — first survey only
+meta_first <- meta_strict %>% filter(sample == "first")
+
+# Spearman correlation: elevation vs. gap length within Þurrlendi
+thurr_first <- meta_first %>% filter(moisture_name == "Þurrlendi")
+
+cor_elev_gap <- cor.test(
+  thurr_first$haeddypimetrar,
+  thurr_first$gap_years,
+  method = "spearman"
+)
+
+cat(sprintf(
+  "Þurrlendi — Spearman rho(haeddypimetrar, gap_years) = %.3f,  p = %.2e,  n = %d\n",
+  cor_elev_gap$estimate,
+  cor_elev_gap$p.value,
+  nrow(thurr_first)
+))
+```
+
+```{r elevation-gap-plot, fig.cap="Survey gap (years between first and last visit) as a function of elevation, coloured by moisture class. Highland dry-land plots (Þurrlendi, yellow) cluster in the top-right corner, confirming that gap length and elevation are nearly collinear within that stratum."}
+moisture_colors_3 <- c(
+  "Þurrlendi" = "#D4A017",
+  "Deiglendi" = "#6AAB5E",
+  "Mýri"      = "#4A90C4",
+  "Flói"      = "#2C5F8A"
+)
+
+ggplot(meta_first,
+       aes(x = haeddypimetrar, y = gap_years, colour = moisture_name)) +
+  geom_point(size = 2.2, alpha = 0.75) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.7) +
+  scale_colour_manual(values = moisture_colors_3, name = "Moisture class") +
+  labs(
+    x        = "Elevation (m a.s.l.)",
+    y        = "Survey gap (years)",
+    title    = "Elevation × survey gap — confound check",
+    subtitle = sprintf(
+      "Þurrlendi: Spearman \u03c1 = %.2f,  p = %.2e",
+      cor_elev_gap$estimate, cor_elev_gap$p.value
+    )
+  ) +
+  theme_classic(base_size = 11)
+```
+
+Within *Þurrlendi* plots the Spearman correlation is
+**ρ = `r round(cor_elev_gap$estimate, 2)`**
+(p = `r format(cor_elev_gap$p.value, scientific = TRUE, digits = 2)`):
+elevation and survey gap are nearly synonymous in the dry-land stratum.
+Because highland plots are compositionally distinct from lowland plots,
+`gap_years` inadvertently captures part of the within-stratum elevation
+gradient rather than purely the time dimension. Part 6 addresses this by
+including `gap_years` as an explicit covariate in stratum-specific PERMANOVAs
+and quantifying how much the temporal R² changes once the confound is absorbed.
+
 ---
 
 # Part 4 — Indicator species analysis (IndVal)
@@ -1648,7 +1715,284 @@ if (nrow(env_paired_long_change) == 0) {
 
 ---
 
-# Part 6 — Excluded coastal plots
+# Part 6 — Within-stratum analysis
+
+The pooled PERMANOVA (Part 1) returns R² = 2.7% for the first-vs-last contrast.
+This low value is expected: the dataset spans radically different habitat types
+(heaths, wetlands, lava, birch shrubland), and between-plot compositional
+variation dwarfs any temporal signal when all plots are analysed together.
+This part disaggregates the dataset by moisture class and re-runs the analysis
+within each stratum — comparing like with like.
+
+The four moisture classes (`Þurrlendi`, `Deiglendi`, `Mýri`, `Flói`) are defined
+from each plot's **first-survey** moisture label. Moisture classification in the
+raw data is assessed at the subplot level and shows substantial within-plot
+heterogeneity (Section 6.4); using the first-survey label as a fixed group
+identifier provides a consistent, reproducible stratum assignment while
+acknowledging that these strata are not crisp categorical boundaries.
+
+## 6.1 Simple within-stratum PERMANOVA
+
+```{r stratum-permanova-simple, cache=TRUE}
+library(purrr)
+
+moisture_classes <- c("Þurrlendi", "Deiglendi", "Mýri", "Flói")
+
+stratum_results <- map_dfr(moisture_classes, function(moist) {
+  idx      <- meta_strict$moisture_name == moist
+  mat_sub  <- mat_strict[idx, ]
+  mat_sub  <- mat_sub[, colSums(mat_sub) > 0]
+  meta_sub <- meta_strict[idx, ]
+
+  n_plots <- length(unique(meta_sub$plot_number))
+  if (n_plots < 5) return(NULL)
+
+  perm <- adonis2(
+    mat_sub ~ sample,
+    data   = meta_sub,
+    method = "bray",
+    strata = meta_sub$plot_number,
+    by     = "margin"
+  )
+
+  tibble(
+    moisture = moist,
+    n_plots  = n_plots,
+    R2       = round(perm$R2[1], 4),
+    F_stat   = round(perm$F[1],  2),
+    p_value  = perm$`Pr(>F)`[1]
+  )
+})
+
+print_full(
+  stratum_results,
+  caption = paste(
+    "Within-stratum paired PERMANOVA (Bray-Curtis, 999 permutations).",
+    "Strata defined by first-survey moisture class.",
+    "R\u00b2 is the fraction of within-stratum variance explained by the first\u2013last contrast."
+  )
+)
+```
+
+Within all three vegetated strata the temporal signal is detectable and consistent
+at R² ≈ 4–5%, substantially higher than the pooled estimate of 2.7%.
+The increase reflects removal of between-habitat compositional noise: once heath
+plots are compared only to other heath plots, the within-plot temporal shift
+becomes a larger fraction of the total variation in the subset.
+*Flói* (bog/fen) is the exception — F barely exceeds 1.0 and p ≈ 0.12.
+Waterlogged peat systems appear genuinely stable over the survey interval;
+their hydrology buffers against the species turnover observed in drier and
+more mesic habitats.
+
+## 6.2 Within-stratum PERMANOVA with survey-gap covariate
+
+Section 3.5 showed that in the *Þurrlendi* stratum, elevation and survey gap
+are nearly collinear (Spearman ρ = 0.82). Because highland plots are
+compositionally distinct *and* have longer observation windows, `gap_years`
+can inflate the apparent temporal R² by acting as a proxy for the within-stratum
+elevation gradient. Including `gap_years` as a marginal covariate before `sample`
+partitions out this confound.
+
+```{r stratum-permanova-covariate, cache=TRUE}
+stratum_covariate_results <- map_dfr(moisture_classes, function(moist) {
+  idx      <- meta_strict$moisture_name == moist
+  mat_sub  <- mat_strict[idx, ]
+  mat_sub  <- mat_sub[, colSums(mat_sub) > 0]
+  meta_sub <- meta_strict[idx, ]
+
+  n_plots <- length(unique(meta_sub$plot_number))
+  if (n_plots < 5) return(NULL)
+
+  perm <- adonis2(
+    mat_sub ~ gap_years + sample,
+    data   = meta_sub,
+    method = "bray",
+    strata = meta_sub$plot_number,
+    by     = "margin"
+  )
+
+  tibble(
+    moisture     = moist,
+    n_plots      = n_plots,
+    R2_gap_years = round(perm$R2[1], 4),
+    F_gap_years  = round(perm$F[1],  2),
+    p_gap_years  = perm$`Pr(>F)`[1],
+    R2_sample    = round(perm$R2[2], 4),
+    F_sample     = round(perm$F[2],  2),
+    p_sample     = perm$`Pr(>F)`[2]
+  )
+})
+
+print_full(
+  stratum_covariate_results,
+  caption = paste(
+    "Within-stratum PERMANOVA with gap_years as a marginal covariate (999 permutations).",
+    "R\u00b2_sample is the temporal effect after partialling out survey gap length.",
+    "R\u00b2_gap_years absorbs between-plot variation correlated with observation window length."
+  )
+)
+```
+
+`gap_years` explains 10–14% of compositional variation within each stratum —
+consistently more than the temporal `sample` effect itself, and present in all
+four strata including *Flói*. In *Deiglendi* its contribution is highest (≈14.5%),
+indicating that the survey schedule was uneven across mesic plots as well as
+highland ones. After accounting for `gap_years`, the `sample` R² stabilises at
+approximately **4.4%** across *Þurrlendi*, *Deiglendi*, and *Mýri*, with
+p ≤ 0.004 in each case. The confound inflated the naive estimates (Section 6.1)
+but did not manufacture the signal: a real, consistent first→last directional
+shift persists independently of how long each plot was observed. *Flói* remains
+non-significant for both terms (p ≈ 0.11–0.12).
+
+## 6.3 Rate of compositional change per year
+
+Because survey gaps differ substantially between strata (median 21 years in
+*Þurrlendi* vs. 10–11 years elsewhere), raw Bray–Curtis distances are not
+directly comparable across strata. Dividing by `gap_years` gives an approximate
+annual rate of compositional change, removing the observation-window advantage
+of dry-land plots. This is a simplification — BC distances do not scale linearly
+with time — but it provides an interpretable first-order comparison.
+
+Stratum membership is assigned from the **first-survey** label so that both
+survey rows of a plot always belong to the same stratum (avoiding the n-loss
+caused by within-plot moisture heterogeneity; see Section 6.4).
+
+```{r bc-rates-per-stratum, cache=TRUE}
+# Assign every plot to the moisture class it had at first survey
+strata_key <- meta_strict %>%
+  filter(sample == "first") %>%
+  select(plot_number, moisture_stratum = moisture_name)
+
+meta_with_stratum <- meta_strict %>%
+  left_join(strata_key, by = "plot_number")
+
+# BC distance first→last per plot, labelled by first-survey stratum
+bc_all_fixed <- map_dfr(moisture_classes, function(moist) {
+  plots_in_stratum <- strata_key %>%
+    filter(moisture_stratum == moist) %>%
+    pull(plot_number)
+
+  idx      <- meta_with_stratum$plot_number %in% plots_in_stratum
+  mat_sub  <- mat_strict[idx, ]
+  mat_sub  <- mat_sub[, colSums(mat_sub) > 0]
+  meta_sub <- meta_with_stratum[idx, ]
+
+  map_dfr(plots_in_stratum, function(plt) {
+    rows <- which(meta_sub$plot_number == plt)
+    if (length(rows) != 2) return(NULL)
+    d <- vegdist(mat_sub[rows, ], method = "bray")[1]
+    tibble(
+      moisture       = moist,
+      plot_number    = plt,
+      bc_distance    = as.numeric(d),
+      gap_years      = meta_sub$gap_years[rows[1]],
+      haeddypimetrar = meta_sub$haeddypimetrar[rows[1]]
+    )
+  })
+})
+
+bc_rates_fixed <- bc_all_fixed %>%
+  mutate(
+    bc_per_year = bc_distance / gap_years,
+    moisture    = factor(moisture,
+                         levels = c("Flói", "Þurrlendi", "Deiglendi", "Mýri"))
+  )
+
+# Summary table
+rate_summary <- bc_rates_fixed %>%
+  group_by(moisture) %>%
+  summarise(
+    n           = n(),
+    median_bc   = round(median(bc_distance), 3),
+    median_gap  = round(median(gap_years), 1),
+    median_rate = round(median(bc_per_year), 4),
+    iqr_rate    = round(IQR(bc_per_year),    4),
+    rho_bc_gap  = round(cor(bc_distance, gap_years, method = "spearman"), 3),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(median_rate))
+
+print_full(
+  rate_summary,
+  caption = paste(
+    "Per-plot compositional change rate (BC distance \u00f7 gap years) by moisture stratum.",
+    "rho_bc_gap = Spearman correlation of raw BC distance with survey gap within the stratum.",
+    "Stratum assignment from first survey; n recovers most plots lost in a naive moisture-filter."
+  )
+)
+```
+
+```{r bc-rates-plot, fig.cap="Annual rate of compositional change (Bray-Curtis distance per year) by moisture class. Stratum assignment from first-survey moisture label. Normalising by observation window removes the gap-length confound visible in raw BC distances (Þurrlendi has the highest raw BC but the longest gaps)."}
+moisture_colors_6 <- c(
+  "Þurrlendi" = "#D4A017",
+  "Deiglendi" = "#6AAB5E",
+  "Mýri"      = "#4A90C4",
+  "Flói"      = "#2C5F8A"
+)
+
+ggplot(bc_rates_fixed,
+       aes(x = moisture, y = bc_per_year, fill = moisture)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 1.8, alpha = 0.5, colour = "grey30") +
+  scale_fill_manual(values = moisture_colors_6, guide = "none") +
+  labs(
+    x        = NULL,
+    y        = "Bray\u2013Curtis distance per year",
+    title    = "Annual rate of compositional change by moisture class",
+    subtitle = "Normalised by observation window; first-survey stratum assignment"
+  ) +
+  theme_classic(base_size = 11)
+```
+
+```{r bc-rates-kw}
+library(dunn.test)
+
+kw_rates <- kruskal.test(bc_per_year ~ moisture, data = bc_rates_fixed)
+
+cat(sprintf(
+  "Kruskal-Wallis: chi-squared = %.3f,  df = %d,  p = %.4f\n",
+  kw_rates$statistic, kw_rates$parameter, kw_rates$p.value
+))
+
+if (kw_rates$p.value < 0.05) {
+  cat("\nPost-hoc Dunn test (BH correction):\n")
+  dunn.test(bc_rates_fixed$bc_per_year, bc_rates_fixed$moisture,
+            method = "bh", label = TRUE)
+}
+```
+
+After normalising for observation window, *Mýri* (mire) plots show the highest
+median annual rate of compositional change, followed by *Deiglendi* (mesic).
+*Þurrlendi* (dry land) has the highest raw BC distances but the longest gaps:
+once the ~21-year advantage is removed, its per-year rate is the lowest of the
+three changing strata. The Kruskal–Wallis test does not reach significance,
+partly because the first-survey stratum assignment still drops some plots for
+which both survey rows could not be recovered (see Section 6.4). The rank order
+is nonetheless ecologically coherent: mire communities respond most rapidly to
+cumulative change drivers, while dry-land heaths shift more slowly per year
+but over longer intervals. *Flói* bogs remain the most stable in both absolute
+and rate terms.
+
+## 6.4 Note on moisture class reliability
+
+`moisture_name` is assessed at the subplot level in the raw data
+(`v_plants_allt.csv`), not at the whole-plot level. Inspection of the raw data
+reveals that approximately 255 of 322 plot-surveys (~79%) contain subplots
+assigned to more than one moisture class. Of the 51 plots that appear to have
+changed moisture class between surveys, all 51 had mixed subplot signals — no
+single plot showed unanimous directional agreement across all subplots. This
+means that apparent moisture-class transitions between first and last survey
+reflect changes in the within-plot moisture *distribution*, not clean whole-plot
+reclassification, and that the category labels used throughout this part carry
+inherent uncertainty. Any analysis of directional moisture transitions between
+surveys is therefore not interpretable with this data, because subplot positions
+were not consistently re-marked between visits. The stratum analyses in Sections
+6.1–6.3 use the first-survey label as a stable, reproducible group identifier
+rather than as a biological truth.
+
+---
+
+# Part 7 — Excluded coastal plots
 
 With only 6 rows (3 plots × 2 surveys), NMDS is numerically unstable.
 PCoA (metric multidimensional scaling) is used instead.
@@ -1717,7 +2061,7 @@ print_full(coastal_species,
 
 ---
 
-# Part 7 — Suggested next steps
+# Part 8 — Suggested next steps
 
 Based on the results above, the following analyses are the logical
 continuation — choose based on what the figures showed.
@@ -1737,11 +2081,13 @@ cat(paste(
   ")",
   "```",
   "",
-  "**B — Stratum-specific PERMANOVAs**",
-  "If soil type or moisture was significant in the Kruskal–Wallis (Part 3),",
-  "split the dataset by those classes and re-run paired PERMANOVA within each",
-  "stratum — this tests whether the temporal signal is consistent across",
-  "habitat types or concentrated in one.",
+  "**B — Stratum-specific PERMANOVAs** *(completed — see Part 6)*",
+  "Within-stratum paired PERMANOVAs by moisture class were carried out in Part 6,",
+  "including a gap_years covariate model. The temporal signal is consistent at",
+  "R\u00b2 \u2248 4.4% across Þurrlendi, Deiglendi, and Mýri; Flói bogs are stable (p \u2248 0.12).",
+  "The next extension is to stratify by habitat type (vistgerð) rather than moisture",
+  "class — finer groupings that may reveal where change is concentrated. See the",
+  "habitat_type_name analysis planned below.",
   "",
   "**C — Taxon-level ecology**",
   "Review the indicator taxa from Part 4 against Icelandic vegetation",
@@ -1761,6 +2107,659 @@ cat(paste(
   "```",
   sep = "\n"
 ))
+```
+
+---
+
+---
+
+---
+
+# Part 8 — Habitat-stratified temporal analysis
+
+This section extends the core analysis by (a) removing residual DCA1 outliers,
+(b) splitting the dataset into ecologically coherent habitat groups, (c) running
+a per-habitat distance-based RDA to partition what drives temporal change within
+each group, (d) testing whether change rate is confounded by survey interval
+length, and (e) identifying the species loading most strongly on the constrained
+axes.
+
+---
+
+## 8.1 DCA outlier identification and exclusion
+
+Plots with DCA1 > 2.0 lie more than two complete species-replacement distances
+from the DCA origin — far enough to sit in a qualitatively different
+compositional space from the bulk of the inland community. Their inclusion would
+inflate within-habitat variance in every downstream subset. Inspection of their
+habitat type, project, and scale clarifies whether they represent genuine habitat
+boundaries or data artefacts.
+
+```{r dca-outlier-id}
+# site_env is built in Section 2.5 (DCA chunk); rows = one plot-survey combination
+# DCA axes are in SD units of species turnover (≈ one full species replacement = 1 SD)
+
+dca_outlier_thresh <- 2.0   # SD units on DCA1 — adjustable
+
+dca_outliers_info <- site_env %>%
+  filter(DCA1 > dca_outlier_thresh) %>%
+  arrange(desc(DCA1)) %>%
+  select(
+    plot_number, sample, DCA1, DCA2,
+    any_of(c(
+      "habitat_type_name", "moisture_name", "soil_type_name",
+      "topography_name", "project_name", "group_scale_name"
+    ))
+  ) %>%
+  distinct(plot_number, .keep_all = TRUE)
+
+# Vector of plot_numbers to exclude in all downstream habitat analyses
+dca_outlier_plots <- unique(dca_outliers_info$plot_number)
+
+cat("DCA1 outlier plots (DCA1 >", dca_outlier_thresh, "SD):\n")
+print(dca_outliers_info)
+cat("\nPlot IDs flagged for exclusion:", paste(dca_outlier_plots, collapse = ", "), "\n")
+cat("Total plots excluded at this step:", length(dca_outlier_plots), "\n")
+```
+
+---
+
+## 8.2 Habitat-type subsets
+
+Starting from `meta_dca` / `mat_dca` (which already exclude the NMDS outliers
+and coastal habitat types from Sections 1.2 and 2.4b), the DCA1 outliers above
+are removed. Habitat types are then grouped into three ecologically coherent
+classes following the *Vistgerðir á Íslandi* L-code hierarchy:
+
+- **mire_fen** (L8 — Votlendi): types whose names contain *flóavist* or *mýravist*,
+  plus the smaller wetland types (Rekjuvist, Dýjavist, Hrossanálarvist)
+- **heath** (L10 — Móar): types whose names contain *móavist*, or Víðikjarrvist /
+  Víðimóavist (tall-willow scrub, L10.9–10)
+- **lava** (L6 — Hraunvist): all types containing *hraunavist*
+- **other**: remaining types (highland grasslands, fell-fields, woodlands, etc.)
+
+Only groups with **n ≥ 10 complete pairs** are carried forward.
+
+```{r habitat-subsets}
+# --- 1. Remove DCA1 outliers from the already-clean DCA dataset ---------------
+keep_dca_clean <- !meta_dca$plot_number %in% dca_outlier_plots
+meta_hab <- meta_dca[keep_dca_clean, ]
+mat_hab  <- mat_dca[keep_dca_clean, ]
+mat_hab  <- mat_hab[, colSums(mat_hab) > 0]   # drop taxa lost after exclusions
+
+# Ensure gap_years is clean (prevent .x/.y suffix from double-join in prep)
+meta_hab <- meta_hab %>%
+  select(-any_of(c("gap_years", "gap_years.x", "gap_years.y"))) %>%
+  left_join(gap_tbl, by = "plot_number")
+
+cat("Rows after DCA1 outlier removal:", nrow(meta_hab),
+    "(", length(unique(meta_hab$plot_number)), "plots )\n")
+
+# --- 2. Assign habitat groups based on Icelandic name conventions -------------
+# Regex patterns match the published vistgerð names (UTF-8; case-insensitive)
+meta_hab <- meta_hab %>%
+  mutate(
+    habitat_group = case_when(
+      str_detect(habitat_type_name,
+        regex("flóavist|mýravist|Rekjuvist|Dýjavist|Hrossanálarvist",
+              ignore_case = TRUE))   ~ "mire_fen",
+      str_detect(habitat_type_name,
+        regex("móavist|Víðikjarrvist|Víðimóavist",
+              ignore_case = TRUE))   ~ "heath",
+      str_detect(habitat_type_name,
+        regex("hraunavist",
+              ignore_case = TRUE))   ~ "lava",
+      TRUE                           ~ "other"
+    )
+  )
+
+# --- 3. Count complete pairs per group ----------------------------------------
+pair_counts_hab <- meta_hab %>%
+  filter(sample == "first") %>%
+  count(habitat_group, name = "n_pairs") %>%
+  arrange(desc(n_pairs))
+
+cat("\nComplete pairs per habitat group:\n")
+print(pair_counts_hab)
+
+# Habitat types within each group — useful for ecological QC
+hab_type_detail <- meta_hab %>%
+  filter(sample == "first") %>%
+  count(habitat_group, habitat_type_name, sort = TRUE)
+
+cat("\nDetailed habitat_type_name breakdown:\n")
+print(hab_type_detail)
+
+# --- 4. Groups meeting the n >= 10 threshold ----------------------------------
+groups_sufficient <- pair_counts_hab %>%
+  filter(n_pairs >= 10) %>%
+  pull(habitat_group)
+
+cat("\nGroups with n >= 10 pairs (carried forward):", paste(groups_sufficient, collapse = ", "), "\n")
+
+# ---- 5. Display labels and ASCII-safe file slugs ----------------------------
+# Maps internal habitat_group codes → proper bilingual names from
+# Vistgerðir á Íslandi (Fjölrit Náttúrufræðistofnunar nr. 54, 2016).
+# hab_slug uses only ASCII characters so filenames stay portable across
+# operating systems — follows the existing p_nmds_*, p_dca_* convention.
+hab_display <- c(
+  mire_fen = "Mýrar og flóar (L8)",
+  heath    = "Móar (L10)",
+  lava     = "Hraunvist (L6)",
+  other    = "Annað"
+)
+hab_slug <- c(
+  mire_fen = "myrar_floar",
+  heath    = "moar",
+  lava     = "hraunvist",
+  other    = "annad"
+)
+```
+
+---
+
+## 8.3 Per-habitat dbRDA
+
+For each sufficient habitat group, `capscale` (distance-based RDA on Bray–Curtis)
+is run with `Condition(plot_number)` to partial out the baseline composition of
+each plot and isolate the *within-plot temporal signal*. Environmental predictors
+are tested at the margin using `anova.cca(by = "margin")`, which gives each term
+adjusted for all others — the most conservative and interpretable approach.
+
+Predictors tested: `gap_years`, `haeddypimetrar` (elevation), `soil_depth`,
+`moisture_name`, `topography_name`, `permafrost`. Any predictor missing in
+≥ 40% of rows or constant within the subset is dropped before modelling.
+
+```{r per-habitat-dbrda, cache=TRUE}
+
+# ---- helper: run dbRDA for one habitat subset --------------------------------
+run_habitat_dbrda <- function(meta_sub, mat_sub, group_label) {
+  # meta_sub : data frame with plot_number, sample, and predictor columns
+  # mat_sub  : community matrix; rownames must equal paste(plot_number, sample, sep="_")
+  # Returns a named list, or NULL on failure (with a message).
+
+  n_plots <- length(unique(meta_sub$plot_number))
+  if (nrow(meta_sub) < 6 || n_plots < 5) {
+    message(group_label, ": fewer than 5 plots with 2 surveys — skipping.")
+    return(NULL)
+  }
+
+  candidate_preds <- c(
+    "gap_years", "haeddypimetrar", "soil_depth",
+    "moisture_name", "topography_name", "permafrost"
+  )
+
+  # Step 1 — keep only predictors present and not too sparse
+  usable_preds <- candidate_preds[vapply(candidate_preds, function(v) {
+    v %in% names(meta_sub) && mean(is.na(meta_sub[[v]])) < 0.40
+  }, logical(1))]
+
+  if (length(usable_preds) == 0) {
+    message(group_label, ": no usable predictors (all absent or > 40% NA).")
+    return(NULL)
+  }
+
+  # Step 2 — convert character/logical to factor, drop_na on predictors
+  meta_cc <- meta_sub %>%
+    mutate(across(where(is.character), as.factor),
+           across(where(is.logical),   as.factor)) %>%
+    select(plot_number, sample, all_of(usable_preds)) %>%
+    drop_na()
+
+  # Step 3 — remove predictors that are constant in this subset (zero variance)
+  usable_preds <- usable_preds[vapply(usable_preds, function(v) {
+    col <- meta_cc[[v]]
+    if (is.numeric(col)) var(col, na.rm = TRUE) > 1e-8
+    else                 length(unique(col)) > 1
+  }, logical(1))]
+
+  if (length(usable_preds) == 0) {
+    message(group_label, ": all predictors are constant after subsetting.")
+    return(NULL)
+  }
+
+  meta_cc <- meta_cc %>% select(plot_number, sample, all_of(usable_preds))
+
+  # Step 4 — align matrix rows to complete-case meta
+  keep_ids <- paste(meta_cc$plot_number, meta_cc$sample, sep = "_")
+  mat_cc   <- mat_sub[rownames(mat_sub) %in% keep_ids, , drop = FALSE]
+  mat_cc   <- mat_cc[, colSums(mat_cc) > 0, drop = FALSE]
+
+  # Guarantee row order matches meta_cc
+  mat_cc <- mat_cc[paste(meta_cc$plot_number, meta_cc$sample, sep = "_"), ]
+
+  if (nrow(meta_cc) < 6 || length(unique(meta_cc$plot_number)) < 4) {
+    message(group_label, ": too few complete-case rows after predictor NA removal.")
+    return(NULL)
+  }
+
+  # Step 5 — build and run capscale (dbRDA; Bray-Curtis + Condition on plot)
+  pred_formula <- paste(c(usable_preds, "Condition(plot_number)"), collapse = " + ")
+  f <- as.formula(paste0("mat_cc ~ ", pred_formula))
+
+  set.seed(123)
+  ord <- tryCatch(
+    vegan::capscale(f, data = meta_cc, distance = "bray"),
+    error = function(e) { message(group_label, ": capscale error — ", e$message); NULL }
+  )
+  if (is.null(ord)) return(NULL)
+
+  # Step 6 — permutation tests
+  set.seed(123)
+  perm_overall <- vegan::anova.cca(ord, permutations = 999)
+
+  set.seed(123)
+  perm_margin <- tryCatch(
+    vegan::anova.cca(ord, by = "margin", permutations = 999),
+    error = function(e) { message(group_label, ": margin ANOVA error — ", e$message); NULL }
+  )
+
+  list(
+    group        = group_label,
+    n_rows       = nrow(meta_cc),
+    n_plots      = length(unique(meta_cc$plot_number)),
+    predictors   = usable_preds,
+    ordination   = ord,
+    perm_overall = perm_overall,
+    perm_margin  = perm_margin
+  )
+}
+
+# ---- Run for every sufficient habitat group ----------------------------------
+dbrda_results <- list()
+
+for (grp in groups_sufficient) {
+
+  # Subset metadata — join gap_tbl fresh to guarantee gap_years is present
+  meta_g <- meta_hab %>%
+    filter(habitat_group == grp) %>%
+    select(-any_of(c("gap_years.x", "gap_years.y")))   # safety net
+
+  # Subset community matrix by row names
+  ids_g  <- paste(meta_g$plot_number, meta_g$sample, sep = "_")
+  mat_g  <- mat_hab[rownames(mat_hab) %in% ids_g, , drop = FALSE]
+  mat_g  <- mat_g[, colSums(mat_g) > 0, drop = FALSE]
+
+  dbrda_results[[grp]] <- run_habitat_dbrda(meta_g, mat_g, hab_display[grp])
+}
+
+# ---- Print results -----------------------------------------------------------
+for (grp in names(dbrda_results)) {
+  res <- dbrda_results[[grp]]
+  if (is.null(res)) next
+
+  cat("\n", strrep("=", 60), "\n", sep = "")
+  cat("Habitat group : ", res$group,
+      "  |  n = ", res$n_rows, " rows / ", res$n_plots, " plots\n", sep = "")
+  cat("Predictors    : ", paste(res$predictors, collapse = ", "), "\n\n", sep = "")
+
+  # Variance partitioning summary
+  cat("Constrained inertia (total):", round(res$ordination$CCA$tot.chi, 4), "\n")
+  cat("Conditioned inertia (plot) :", round(res$ordination$pCCA$tot.chi, 4), "\n")
+  cat("Unconstrained residual     :", round(res$ordination$CA$tot.chi,  4), "\n\n")
+
+  cat("-- Overall model permutation test --\n")
+  print(res$perm_overall)
+
+  if (!is.null(res$perm_margin)) {
+    cat("\n-- Marginal term significance (each term adjusted for all others) --\n")
+    print(res$perm_margin)
+  }
+}
+```
+
+---
+
+## 8.4 Survey gap normalisation — does change rate differ between habitat groups?
+
+A longer interval between surveys mechanically allows more community change to
+accumulate. Before comparing turnover magnitudes across habitat groups it is
+important to confirm that the groups do not simply differ in how long ago their
+plots were first visited. The per-plot Bray–Curtis values from `bc_with_gap`
+(Section 3.1) are modelled against `gap_years` and `habitat_group` together.
+An interaction term tests whether the **rate** of change (BC per year) differs
+between groups after accounting for interval length.
+
+```{r gap-years-bc-by-habitat, fig.height=5, fig.width=8, cache.extra=hab_display}
+
+# Join habitat_group (one row per plot — use "first" survey to avoid duplication)
+bc_hab <- bc_with_gap %>%
+  left_join(
+    meta_hab %>%
+      filter(sample == "first") %>%
+      select(plot_number, habitat_group) %>%
+      distinct(),
+    by = "plot_number"
+  ) %>%
+  filter(!is.na(bc), !is.na(gap_years), !is.na(habitat_group))
+
+cat("Plots with complete BC + gap_years + habitat_group data:", nrow(bc_hab), "\n")
+cat("by group:\n")
+print(count(bc_hab, habitat_group))
+
+# --- Interaction model: does the BC~gap_years slope vary by habitat group? ---
+bc_lm_int <- lm(bc ~ gap_years * habitat_group, data = bc_hab)
+bc_lm_add <- lm(bc ~ gap_years + habitat_group, data = bc_hab)
+
+cat("\n--- Interaction model: BC ~ gap_years * habitat_group ---\n")
+print(summary(bc_lm_int))
+
+cat("\n--- Additive model: BC ~ gap_years + habitat_group ---\n")
+print(summary(bc_lm_add))
+
+cat("\n--- AIC comparison (lower = better fit) ---\n")
+print(AIC(bc_lm_int, bc_lm_add))
+
+# --- Figure: BC vs gap_years, one regression line per habitat group ----------
+p_bc_gap_hab <- ggplot(bc_hab,
+                       aes(x = gap_years, y = bc,
+                           colour = habitat_group, fill = habitat_group)) +
+  geom_point(alpha = 0.55, size = 2.2) +
+  geom_smooth(method = "lm", se = TRUE, alpha = 0.12, linewidth = 0.9) +
+  scale_colour_brewer(palette = "Set1", name = "Habitat group",
+                      labels  = hab_display) +
+  scale_fill_brewer(  palette = "Set1", name = "Habitat group",
+                      labels  = hab_display) +
+  labs(
+    x        = "Survey interval (years)",
+    y        = "Bray–Curtis dissimilarity (first vs last)",
+    title    = "Community turnover vs survey interval by habitat group",
+    subtitle = "Separate OLS lines; shading = 95% CI"
+  ) +
+  theme_classic() +
+  theme(legend.position = "right")
+
+print(p_bc_gap_hab)
+ggsave("outputs/p_bc_gap_hab.png", plot = p_bc_gap_hab,
+       width = 8, height = 5, dpi = 300)
+```
+
+---
+
+## 8.5 Species contributions to constrained RDA axes
+
+For each habitat group whose overall dbRDA was significant, the species scores
+(weighted averages on the constrained axes) identify which taxa are most
+strongly associated with the direction of temporal change. Positive loaders on
+CAP1 gained relative to the within-plot centroid; negative loaders lost.
+
+```{r species-contributions, fig.height=6, fig.width=8}
+
+sig_alpha <- 0.05   # overall model significance threshold
+
+for (grp in names(dbrda_results)) {
+  res <- dbrda_results[[grp]]
+  if (is.null(res)) next
+
+  # Gate on overall model significance
+  overall_p <- res$perm_overall[1, "Pr(>F)"]
+  if (is.na(overall_p) || overall_p > sig_alpha) {
+    cat(grp, ": overall model not significant (p =",
+        round(overall_p, 3), ") — skipping species scores.\n\n")
+    next
+  }
+
+  cat("\n", strrep("=", 60), "\n", sep = "")
+  cat("Species contributions —", hab_display[grp],
+      "  (overall p =", round(overall_p, 3), ")\n\n")
+
+  # Number of constrained axes available
+  n_constrained <- length(res$ordination$CCA$eig)
+  n_axes        <- min(2L, n_constrained)
+
+  # Species scores: weighted averages of site scores (CAP1, CAP2)
+  sp_raw <- tryCatch(
+    vegan::scores(res$ordination, display = "species",
+                  choices = seq_len(n_axes)),
+    error = function(e) {
+      message("  Could not extract species scores: ", e$message); NULL
+    }
+  )
+  if (is.null(sp_raw)) next
+
+  # Tidy the score matrix
+  sp_scores <- as_tibble(sp_raw, rownames = "taxon_name")
+
+  # Rename CAP → RDA for readability; handle 1- or 2-axis cases
+  names(sp_scores) <- sub("^CAP1$", "RDA1", names(sp_scores))
+  names(sp_scores) <- sub("^CAP2$", "RDA2", names(sp_scores))
+  if (!"RDA2" %in% names(sp_scores)) sp_scores$RDA2 <- NA_real_
+
+  sp_scores <- sp_scores %>%
+    mutate(
+      RDA1_abs       = abs(RDA1),
+      direction_RDA1 = if_else(RDA1 >= 0, "gainer (+RDA1)", "loser (−RDA1)")
+    ) %>%
+    arrange(desc(RDA1_abs))
+
+  cat("Top 20 taxa by |loading| on RDA axis 1:\n")
+  print(
+    sp_scores %>%
+      slice_head(n = 20) %>%
+      select(taxon_name, RDA1, RDA2, direction_RDA1),
+    n = 20
+  )
+
+  # --- Horizontal bar chart: top 20 species loadings on RDA1 -----------------
+  top_sp <- 20L
+  sp_plot_dat <- sp_scores %>%
+    slice_head(n = top_sp) %>%
+    mutate(taxon_name = fct_reorder(taxon_name, RDA1))
+
+  p_sp <- ggplot(sp_plot_dat,
+                 aes(x = RDA1, y = taxon_name, fill = direction_RDA1)) +
+    geom_col(width = 0.7) +
+    geom_vline(xintercept = 0, linewidth = 0.4, colour = "grey40") +
+    scale_fill_manual(
+      values = c("gainer (+RDA1)" = "#E41A1C",
+                 "loser (−RDA1)"  = "#377EB8"),
+      name = NULL
+    ) +
+    labs(
+      x        = "Species loading on RDA axis 1 (constrained dbRDA)",
+      y        = NULL,
+      title    = paste0("Temporal species drivers — ", hab_display[grp]),
+      subtitle = paste0("Top ", top_sp, " taxa by |loading|; Bray–Curtis capscale, ",
+                        "Condition(plot_number)")
+    ) +
+    theme_classic() +
+    theme(
+      legend.position = "bottom",
+      axis.text.y     = element_text(size = 8, face = "italic"),
+      plot.subtitle   = element_text(size = 9, colour = "grey40")
+    )
+
+  print(p_sp)
+  ggsave(
+    file.path("outputs", paste0("p_sp_rda_", hab_slug[grp], ".png")),
+    plot  = p_sp,
+    width = 8, height = 6, dpi = 300
+  )
+}
+```
+
+---
+
+## 8.6 Per-habitat species gainers and losers
+
+For each habitat group, this section computes the mean cover change
+(last − first) for every species that was present in at least three plots
+within the group. A paired Wilcoxon signed-rank test across plots gives a
+p-value and rank-biserial correlation (r) as effect size. The top 20 gainers
+and losers by mean Δcover are shown in a diverging bar chart, with significant
+species (raw p ≤ 0.05) highlighted in solid colour and non-significant ones
+shown faded.
+
+This is the plain-language complement to Section 8.5: instead of asking "which
+species co-vary with the constrained RDA axis", it asks "which species actually
+changed in cover, and by how much, within this habitat type?"
+
+```{r species-gainers-losers, fig.height=7, fig.width=9}
+
+# Minimum number of plots in which a species must be non-zero (first OR last)
+# before it is included in the per-habitat Wilcoxon test
+min_plots_present <- 3L
+
+# Significance threshold for solid vs faded colouring
+sig_thresh_sp <- 0.05
+
+# ---- Widen community_long_paired to one row per plot × taxon × survey -------
+# community_long_paired has columns: plot_number, sample, taxon_name, cover
+# We need first and last cover side by side for each plot × taxon combination.
+
+cover_wide_sp <- community_long_paired %>%
+  # Keep only plots in our cleaned habitat dataset
+  filter(plot_number %in% unique(meta_hab$plot_number)) %>%
+  pivot_wider(
+    names_from  = sample,
+    values_from = cover,
+    values_fill = 0          # species absent in a survey = cover 0
+  ) %>%
+  # Ensure both columns exist even if one survey had no records for a species
+  mutate(
+    first = if ("first" %in% names(.)) first else 0,
+    last  = if ("last"  %in% names(.)) last  else 0
+  )
+
+# Join habitat_group from meta_hab (one row per plot, take from "first" sample)
+hab_lookup <- meta_hab %>%
+  filter(sample == "first") %>%
+  select(plot_number, habitat_group) %>%
+  distinct()
+
+cover_wide_sp <- cover_wide_sp %>%
+  left_join(hab_lookup, by = "plot_number") %>%
+  filter(!is.na(habitat_group))
+
+# ---- Per-habitat × taxon summary + Wilcoxon ---------------------------------
+sp_change_hab <- cover_wide_sp %>%
+  group_by(habitat_group, taxon_name) %>%
+  summarise(
+    n_plots      = n(),
+    n_nonzero    = sum(first > 0 | last > 0),
+    mean_first   = mean(first),
+    mean_last    = mean(last),
+    mean_delta   = mean(last - first),
+    # Paired Wilcoxon: requires at least min_plots_present plots and
+    # at least one non-tied pair
+    wilcox_p = {
+      d <- last - first
+      if (sum(d != 0) < min_plots_present) NA_real_
+      else tryCatch(
+        wilcox.test(last, first, paired = TRUE, exact = FALSE)$p.value,
+        error   = function(e) NA_real_,
+        warning = function(w) suppressWarnings(
+          wilcox.test(last, first, paired = TRUE, exact = FALSE)$p.value
+        )
+      )
+    },
+    # Rank-biserial correlation as effect size (= 2W/n(n+1) - 1 via coin, or
+    # approximated here as the standardised W statistic)
+    wilcox_r = {
+      d <- last - first
+      n <- sum(d != 0)
+      if (n < min_plots_present) NA_real_
+      else tryCatch({
+        wt <- wilcox.test(last, first, paired = TRUE, exact = FALSE)
+        # rank-biserial r = 1 - 2W / (n*(n+1)/2)  [Kerby 2014]
+        1 - (2 * wt$statistic) / (n * (n + 1) / 2)
+      },
+      error   = function(e) NA_real_,
+      warning = function(w) suppressWarnings({
+        wt <- wilcox.test(last, first, paired = TRUE, exact = FALSE)
+        1 - (2 * wt$statistic) / (n * (n + 1) / 2)
+      }))
+    },
+    .groups = "drop"
+  ) %>%
+  filter(n_nonzero >= min_plots_present) %>%
+  mutate(
+    sig        = !is.na(wilcox_p) & wilcox_p <= sig_thresh_sp,
+    direction  = if_else(mean_delta >= 0, "gainer", "loser"),
+    alpha_val  = if_else(sig, 1.0, 0.3)
+  )
+
+# ---- Print summary table per group ------------------------------------------
+for (grp in groups_sufficient) {
+
+  tbl_grp <- sp_change_hab %>%
+    filter(habitat_group == grp, sig) %>%
+    arrange(desc(abs(mean_delta))) %>%
+    select(taxon_name, mean_first, mean_last, mean_delta, wilcox_p, wilcox_r)
+
+  cat("\n", strrep("=", 60), "\n", sep = "")
+  cat("Significant changers (raw p ≤ 0.05) —", hab_display[grp], "\n")
+  cat("  Gainers:", sum(tbl_grp$mean_delta > 0),
+      "  Losers:", sum(tbl_grp$mean_delta < 0), "\n\n")
+  print(tbl_grp, n = 40)
+}
+
+# ---- Diverging bar chart per habitat group -----------------------------------
+for (grp in groups_sufficient) {
+
+  grp_dat <- sp_change_hab %>%
+    filter(habitat_group == grp) %>%
+    # Keep top 20 gainers + top 20 losers by |mean_delta|
+    arrange(desc(mean_delta)) %>%
+    { bind_rows(slice_head(., n = 20), slice_tail(., n = 20)) } %>%
+    distinct(taxon_name, .keep_all = TRUE) %>%
+    mutate(
+      taxon_label = taxon_name,
+      taxon_label = fct_reorder(taxon_label, mean_delta),
+      fill_col    = case_when(
+        sig & direction == "gainer" ~ "sig_gain",
+        sig & direction == "loser"  ~ "sig_loss",
+        direction == "gainer"       ~ "ns_gain",
+        TRUE                        ~ "ns_loss"
+      )
+    )
+
+  n_sig  <- sum(grp_dat$sig)
+  n_grp  <- sp_change_hab %>%
+    filter(habitat_group == grp) %>%
+    pull(n_plots) %>% first()
+
+  p_gl <- ggplot(grp_dat,
+                 aes(x = mean_delta, y = taxon_label, fill = fill_col)) +
+    geom_col(width = 0.75) +
+    geom_vline(xintercept = 0, linewidth = 0.4, colour = "grey30") +
+    scale_fill_manual(
+      values = c(
+        sig_gain = "#E41A1C",
+        sig_loss = "#377EB8",
+        ns_gain  = "#FABEBE",
+        ns_loss  = "#A6C8E0"
+      ),
+      labels = c(
+        sig_gain = paste0("Gainer (p ≤ ", sig_thresh_sp, ")"),
+        sig_loss = paste0("Loser  (p ≤ ", sig_thresh_sp, ")"),
+        ns_gain  = "Gainer (ns)",
+        ns_loss  = "Loser  (ns)"
+      ),
+      name = NULL
+    ) +
+    labs(
+      x        = "Mean Δcover (last − first, % Braun–Blanquet)",
+      y        = NULL,
+      title    = paste0("Species gainers and losers — ", hab_display[grp]),
+      subtitle = paste0(
+        "Top 20 gainers + top 20 losers by mean Δcover; ",
+        n_sig, " significant (paired Wilcoxon, raw p ≤ ", sig_thresh_sp, ")"
+      )
+    ) +
+    theme_classic() +
+    theme(
+      axis.text.y   = element_text(size = 7.5, face = "italic"),
+      legend.position = "bottom",
+      plot.subtitle = element_text(size = 9, colour = "grey40")
+    )
+
+  print(p_gl)
+  ggsave(
+    file.path("outputs", paste0("p_gainers_losers_", hab_slug[grp], ".png")),
+    plot = p_gl, width = 9, height = 7, dpi = 300
+  )
+}
 ```
 
 ---

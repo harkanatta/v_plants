@@ -22,8 +22,18 @@
     {
       "name": "Docker — RStudio Server",
       "runtimeExecutable": "docker",
-      "runtimeArgs": ["run", "--rm", "-p", "8787:8787", "-e", "DISABLE_AUTH=true", "v_plants"],
-      "port": 8787
+      "runtimeArgs": [
+        "run",
+        "--rm",
+        "-d",
+        "-p", "8788:8787",
+        "-e", "DISABLE_AUTH=true",
+        "-v", "C:\\Users\\ValtýrSigurðsson\\Documents\\repos-home\\gagnagrunnurNI:/home/rstudio/gagnagrunnurNI/",
+        "-v", "C:\\Users\\ValtýrSigurðsson\\Documents\\repos-home\\r-library:/home/rstudio/R/library",
+        "-e", "R_LIBS_USER=/home/rstudio/R/library",
+        "rocker/tidyverse:latest"
+      ],
+      "port": 8788
     }
   ]
 }

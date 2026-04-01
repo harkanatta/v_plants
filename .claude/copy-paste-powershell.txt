@@ -1,0 +1,30 @@
+gagnagrunnurNI — copy/paste into Windows PowerShell
+====================================================
+
+Set location to the repo root before the Shiny commands (paths are relative):
+
+  cd "C:\Users\ValtýrSigurðsson\Documents\repos-home\gagnagrunnurNI"
+
+
+Shiny — NMDS Biplot (v4) — http://localhost:3838
+------------------------------------------------
+Rscript -e "shiny::runApp('apps/nmds/app_nmds.R', port=3838, launch.browser=FALSE)"
+
+
+Shiny — Species Composition Explorer (v7) — http://localhost:3839
+-----------------------------------------------------------------
+Rscript -e "shiny::runApp('apps/species-comp/sp_comp/app.R', port=3839, launch.browser=FALSE)"
+
+
+Shiny — NMDS Explorer (first/last pairs) — http://localhost:3840
+----------------------------------------------------------------
+Rscript -e "shiny::runApp('shiny/app.R', port=3840, launch.browser=FALSE)"
+
+
+Docker — RStudio Server — http://localhost:8788
+-----------------------------------------------
+Runs detached (-d). Adjust host paths if your folders move.
+
+docker run --rm -d -p 8788:8787 -e DISABLE_AUTH=true -v "C:\Users\ValtýrSigurðsson\Documents\repos-home\gagnagrunnurNI:/home/rstudio/gagnagrunnurNI/" -v "C:\Users\ValtýrSigurðsson\Documents\repos-home\r-library:/home/rstudio/R/library" -e R_LIBS_USER=/home/rstudio/R/library rocker/tidyverse:latest
+
+To stop the container later, use: docker ps  (find the container ID) then  docker stop <id>
