@@ -1,0 +1,297 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{5}
+\usepackage{fontspec}
+\setmainfont{DejaVu Serif}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{float}
+\floatplacement{figure}{H}
+\usepackage{caption}
+\captionsetup{font=small}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+\usepackage{threeparttablex}
+\usepackage[normalem]{ulem}
+\usepackage{makecell}
+\usepackage{xcolor}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={Niðurstöður --- Gróðurbreytingar á náttúruverndarsvæðum Íslands},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{Niðurstöður --- Gróðurbreytingar á náttúruverndarsvæðum Íslands}
+\author{}
+\date{\vspace{-2.5em}2026-04-10}
+
+\begin{document}
+\maketitle
+
+{
+\setcounter{tocdepth}{3}
+\tableofcontents
+}
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\section{Minnkun tegundafjölda}\label{minnkun-tegundafjuxf6lda}
+
+Tegundafjöldi minnkaði á milli fyrri og seinni mælingar í 183 af 305
+reitum (60\%), á meðan 102 reitir (33\%) sýndu aukningu og 20 héldust
+stöðugir á milli athugana. Miðgildi breytingarinnar var -2 tegundir á
+reit (meðaltal -2.2). Wilcoxon-próf staðfesti að minnkunin er marktækt
+frábrugðin núlli (V = 12,113.5, p \textless{} 0,001), sem þýðir að
+hnignunin er raunveruleg og kerfisbundin, ekki tilviljanakennd.
+
+\begin{figure}
+
+{\centering \includegraphics{figures/richness-density-1} 
+
+}
+
+\caption{Mynd 1. Dreifing tegundafjölda við fyrri (blátt) og seinni (rautt) mælingu. Lóðrétta línan sýnir miðgildi fyrri mælinganna.}\label{fig:richness-density}
+\end{figure}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\section{Endurnýjun tegunda
+(Bray--Curtis)}\label{endurnuxfdjun-tegunda-braycurtis}
+
+Endurnýjun tegunda mæld með Bray--Curtis-fjarlægð milli fyrri og seinni
+mælinga í hverjum reit. Miðgildi Bray--Curtis-gildis var 0.609 (meðaltal
+0.585, n = 163 reitir). Þetta þýðir að þegar bæði fjöldi tegunda og
+þekja þeirra eru tekin með í reikninginn, hafði um helmingur
+tegundasamsetningarinnar breyst á milli fyrstu og síðustu mælingar ---
+að meðaltali á hvern reit. Fylgni milli endurnýjunar tegunda og minnkun
+tegundafjölda var marktæk (Spearman ρ = -0.323, p \textless{} 0,001), en
+fylgnin var ekki sterk. sem bendir til þess að tvenns konar breytingar
+séu í gangi: annars vegar nettótap tegunda og hins vegar breyting á
+tegundasamsetningu þar nýjar tegundir skipta öðrum út án þess að
+heildarfjöldinn breytist endilega.
+
+\begin{figure}
+
+{\centering \includegraphics{figures/bc-gap-1} 
+
+}
+
+\caption{Mynd 2. Breyting á tegundasamsetningu (Bray–Curtis) í tengslum við tíma milli mælinga. Rauð brotalína = línuleg aðlögun (95\% CI); blá lína = loess-sléttun.}\label{fig:bc-gap}
+\end{figure}
+
+Breyting á tegundasamsetningu jókst marktækt með auknum tíma milli
+mælinga (hallatala = +0.025 BC-einingar/ár, R² = 0.541, p \textless{}
+0,001). Loess-kúrfan sýnir að breytingin er hvað hröðust á fyrstu 15
+árunum og hægist síðan á eftir um 20 ár. Þetta bendir til þess að reitir
+þar sem langur tími líður á milli mælinga séu ekki endilega þeir sem
+hafa breyst mest á öllu tímabilinu.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\section{Hvaða umhverfisþættir spá fyrir um
+breytingar?}\label{hvauxf0a-umhverfisuxfeuxe6ttir-spuxe1-fyrir-um-breytingar}
+
+Þrír umhverfisþættir voru metnir sem mögulegar skýribreytur: hæð yfir
+sjávarmáli, jarðvegsdýpi og fjöldi ára milli mælinga. Hrá
+Spearman-fylgni sýnir að hæð og tími milli mælinga fylgjast mjög vel að
+(ρ ≈ 0,64--0,70 fyrir BC), en þessi tvær breytur eru ekki óháðar: reitir
+á hálendinu höfðu almennt lengra bil milli mælinga. Hlutfylgni, þar sem
+áhrif annarra breyta eru hafðar fastar sýnir hvernig þættirnir hegða sér
+óháð hverjum öðrum.
+
+\begin{table}[!h]
+\centering
+\caption{\label{tab:predictor-table}Spearman-fylgni og hlutfylgni þriggja umhverfisþátta við $\Delta$S og BC. Hlutfylgni eru reiknuð með öllum þremur þáttum í líkaninu samtímis.}
+\centering
+\begin{tabular}[t]{lr>{}rrr>{}rr}
+\toprule
+Þáttur & ΔS rho (hrátt) & ΔS rho (hlutfylgni) & ΔS p & BC rho (hrátt) & BC rho (hlutfylgni) & BC p\\
+\midrule
+\cellcolor{gray!10}{Hæð yfir sjávarmáli} & \cellcolor{gray!10}{-0.343} & \textbf{\cellcolor{gray!10}{-0.134}} & \cellcolor{gray!10}{0.0000} & \cellcolor{gray!10}{0.643} & \textbf{\cellcolor{gray!10}{0.170}} & \cellcolor{gray!10}{0.0000}\\
+Jarðvegsdýpi & -0.110 & \textbf{-0.188} & 0.0556 & -0.017 & \textbf{0.131} & 0.7675\\
+\cellcolor{gray!10}{Bil milli mælinga (ár)} & \cellcolor{gray!10}{-0.349} & \textbf{\cellcolor{gray!10}{-0.106}} & \cellcolor{gray!10}{0.0000} & \cellcolor{gray!10}{0.700} & \textbf{\cellcolor{gray!10}{0.378}} & \cellcolor{gray!10}{0.0000}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Þrjár niðurstöður skera sig úr: \textbf{Tími milli mælinga} hefur mest
+áhrif á aukna endurnýjun tegunda (BC hlutafylgni ρ = 0.378, p
+\textless{} 0,001), sem segir sig að vissu leyti sjálft en staðfestir þó
+að gróðurbreytingar eru til staðar og aukast með tíma. \textbf{Hæð yfir
+sjávarmáli} er marktæk óháð tíma milli mælinga (ΔS hlutafylgni ρ =
+-0.134, BC hlutafylgni ρ = 0.17), sem bendir til þess að hálendisreitir
+séu viðkvæmari. \textbf{Jarðvegsdýpi} kemur fram sem sterkasta
+sjálfstæða skýribreytan fyrir fyrir \emph{tegundatap} (ΔS hlutafylgni ρ
+= -0.188, p \textless{} 0,05) þegar hæð og tími hafa verið festar -
+minni jarðvegur tapar fleiri tegundum en djúpur jarðvegur.
+
+\begin{figure}
+
+{\centering \includegraphics{figures/soil-depth-plot-1} 
+
+}
+
+\caption{Mynd 3. Tegundatap sem fall af jarðvegsdýpi. Rauð lína = loess-sléttun; blá brotalína = línuleg aðlögun.}\label{fig:soil-depth-plot}
+\end{figure}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\section{Jarðvegsbleyta --- kort yfir endurnýjun tegunda og
+tegundatap}\label{jaruxf0vegsbleyta-kort-yfir-endurnuxfdjun-tegunda-og-tegundatap}
+
+\begin{figure}
+
+{\centering \includegraphics{figures/moisture-maps-1} 
+
+}
+
+\caption{Mynd 4. Endurnýjun tegunda (BC, efri kort) og breyting á tegundafjölda (ΔS, neðri kort) eftir jarðvegsbleytuflokkum. Rautt = mikil breyting / tap; grænt/blátt = stöðugleiki / aukning.}\label{fig:moisture-maps-1}
+\end{figure}
+\begin{figure}
+
+{\centering \includegraphics{figures/moisture-maps-2} 
+
+}
+
+\caption{Mynd 4. Endurnýjun tegunda (BC, efri kort) og breyting á tegundafjölda (ΔS, neðri kort) eftir jarðvegsbleytuflokkum. Rautt = mikil breyting / tap; grænt/blátt = stöðugleiki / aukning.}\label{fig:moisture-maps-2}
+\end{figure}
+\begin{table}[!h]
+\centering
+\caption{\label{tab:moisture-stats}Endurnýjun tegunda og tegundatap eftir jarðvegsbleytuflokkum. Kruskal--Wallis: BC $\chi^2$=13.12 p=0.0044; $\Delta$S $\chi^2$=11.06 p=0.0114.}
+\centering
+\begin{tabular}[t]{lrrr}
+\toprule
+Jarðvegsbleyta & n reitir & Miðgildi BC & Miðgildi ΔS\\
+\midrule
+\cellcolor{gray!10}{Þurrlendi} & \cellcolor{gray!10}{111} & \cellcolor{gray!10}{0.678} & \cellcolor{gray!10}{-2}\\
+Mýri & 77 & 0.609 & -4\\
+\cellcolor{gray!10}{Deiglendi} & \cellcolor{gray!10}{70} & \cellcolor{gray!10}{0.526} & \cellcolor{gray!10}{-1}\\
+Flói & 45 & 0.441 & -1\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Þurrlendi sýndi hæstu endurnýjun tegunda (BC miðgildi = 0.678) en fremur
+lítið tegundatap (ΔS miðgildi = -2), sem bendir til þess að
+tegundasamsetningin sé að breytast --- sumar tegundir hverfa en aðrar
+koma í staðinn --- án þess að heildarfjöldi tegunda minnki verulega.
+Mýrar sýndu hins vegar mest tegundatap (ΔS = -4) án þess að
+Bray--Curtis-fjarlægðin væri samsvarandi há, sem bendir til þess að
+tegundir séu að hverfa án þess að nýjar taki við. Þetta eru, í
+grundvallaratriðum, tveir ólíkir breytingarferlar sem skipta máli fyrir
+túlkun niðurstaðnanna. ---
+
+\section{Vistgerðir --- kort yfir endurnýjun tegunda og
+tegundatap}\label{vistgeruxf0ir-kort-yfir-endurnuxfdjun-tegunda-og-tegundatap}
+
+\begin{figure}
+
+{\centering \includegraphics{figures/habitat-maps-1} 
+
+}
+
+\caption{Mynd 5. Endurnýjun tegunda (BC, efri kort) og breyting á tegundafjölda (ΔS, neðri kort) eftir helstu vistgerðum (n ≥ 8 reitir).}\label{fig:habitat-maps-1}
+\end{figure}
+\begin{figure}
+
+{\centering \includegraphics{figures/habitat-maps-2} 
+
+}
+
+\caption{Mynd 5. Endurnýjun tegunda (BC, efri kort) og breyting á tegundafjölda (ΔS, neðri kort) eftir helstu vistgerðum (n ≥ 8 reitir).}\label{fig:habitat-maps-2}
+\end{figure}
+\begin{table}[!h]
+\centering
+\caption{\label{tab:habitat-stats}Endurnýjun tegunda og tegundatap eftir vistgerð (n $\geq$ 8). Kruskal--Wallis: BC $\chi^2$=81.05 p $<$ 0,001; $\Delta$S $\chi^2$=53.60 p $<$ 0,001.}
+\centering
+\begin{tabular}[t]{lrrr}
+\toprule
+Vistgerð & n reitir & Miðgildi BC & Miðgildi ΔS\\
+\midrule
+\cellcolor{gray!10}{Lyngmóavist á hálendi} & \cellcolor{gray!10}{8} & \cellcolor{gray!10}{0.802} & \cellcolor{gray!10}{-8.0}\\
+Rústamýravist & 31 & 0.798 & -7.0\\
+\cellcolor{gray!10}{Rekjuvist} & \cellcolor{gray!10}{17} & \cellcolor{gray!10}{0.682} & \cellcolor{gray!10}{-4.0}\\
+Starungsmýravist & 34 & 0.543 & -3.5\\
+\cellcolor{gray!10}{Sjávarfitjungsvist} & \cellcolor{gray!10}{27} & \cellcolor{gray!10}{0.379} & \cellcolor{gray!10}{1.0}\\
+\addlinespace
+Mosahraunavist & 8 & 0.182 & 7.0\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Þrjár vistgerðir skera sig úr. \textbf{Rústamýravist} (n = 31) sýndi
+bæði mikla endurnýjun tegunda (BC = 0.798) og mikið tegundatap (ΔS =
+-7), og er þannig sú vistgerð sem er hvað verst sett samkvæmt báðum
+mælikvörðum. \textbf{Lyngmóavist á hálendi} sýndi svipaðar niðurstöður
+(BC = 0.802, ΔS = -8) og endurspeglar líklega hæðaráhrifin sem komu fram
+í hlutfylgnigreiningu. Á hinn bóginn stendur \textbf{Mosahraunavist} upp
+úr sem eina vistgerðin sem sýnir bæði lága endurnýjun tegunda (BC =
+0.182) og aukningu á tegundafjölda (ΔS = 7).
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\end{document}

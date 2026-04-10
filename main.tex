@@ -1,0 +1,350 @@
+% =========================================================
+%  Merged: main_overleaf_template.tex + results_chapter.tex
+% =========================================================
+\documentclass[12pt,a4paper]{article}
+
+% ---- encoding & language --------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[icelandic]{babel}
+
+% ---- page layout ----------------------------------------
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{setspace}
+
+% ---- header / footer ------------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\includegraphics[height=1.2cm]{myndir/logo_nnv}}
+\renewcommand{\headrulewidth}{0pt}
+\cfoot{\thepage}
+\setlength{\headheight}{40pt}
+
+% ---- bibliography ---------------------------------------
+\usepackage[
+  backend=biber,
+  style=authoryear,
+  sorting=nyt,
+  maxcitenames=2,
+  mincitenames=1,
+  maxbibnames=99,
+  autolang=other,
+  babel=other
+]{biblatex}
+
+\addbibresource{references.bib}
+
+\renewbibmacro{in:}{}
+
+\DefineBibliographyStrings{icelandic}{
+  and       = {og},
+  andothers = {o.fl.},
+  editor    = {ritstjóri},
+  editors   = {ritstjórar},
+  byeditor  = {ritstj.},
+  urlseen   = {Sótt}
+}
+
+\renewcommand*{\multinamedelim}{\addcomma\space}
+\renewcommand*{\finalnamedelim}{\space og\space}
+\renewcommand*{\finalandcomma}{}
+
+% ---- tables (from results chapter) ----------------------
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{colortbl}
+\usepackage{makecell}
+\usepackage{xcolor}
+
+% ---- figures --------------------------------------------
+\usepackage{float}
+\floatplacement{figure}{H}
+\usepackage{caption}
+\captionsetup{font=small}
+\usepackage{wrapfig}
+
+% ---- misc pandoc helpers --------------------------------
+\usepackage{amsmath,amssymb}
+\setlength{\emergencystretch}{3em}
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+% ---- hyperref -------------------------------------------
+\usepackage{hyperref}
+\hypersetup{hidelinks}
+
+% =========================================================
+\begin{document}
+
+% ---- title block ----------------------------------------
+\vspace*{1cm}
+
+\begin{center}
+    {\Large \textbf{Minnisblað}}
+\end{center}
+
+\vspace{1cm}
+
+\noindent
+\begin{tabular}{@{}l l@{}}
+\textbf{Dagsetning:} & 9. apríl 2026 \\
+\textbf{Viðtakandi:} & Aníta Ósk Áskelsdóttir \\
+\textbf{Sendandi:}   & Starri Heiðmarsson og Valtýr Sigurðsson \\
+\textbf{Efni:}       & Vistgerðir, gagnagæði og vísbendingar um nýtingu þeirra til vöktunar \\
+\end{tabular}
+
+\vspace{1cm}
+
+\noindent
+Landvistgerðir voru afmarkaðar og þeim lýst á landsvísu í fjölriti NÍ frá
+2016 \cite{ottosson2016} en áður höfðu farið fram rannsóknir og flokkun
+vistgerða á hálendi sbr. skýrslur frá nokkrum svæðum á miðhálendinu
+(\cite{einarsson2000} \& \cite{magnusson2002}). Þegar vöktun
+náttúruverndarsvæða var hafin í samstarfi þáverandi Náttúrufræðistofnunar
+Íslands og náttúrustofa þá var ákveðið að hefja vöktun á vistgerðum með
+því að endurmæla úrval þeirra sniða sem áður höfðu verið mæld. Í þessu
+minnisblaði er farið yfir framkvæmdina, gerð tilraun til að bera saman
+mælingar og meta vöktunargildið auk þess að leggja endurbætur á
+framkvæmdahliðinni.
+
+\vspace{1cm}
+
+\noindent
+Þau snið sem metin voru á árabilinu 1999--2013 voru mismunandi nema hvað
+þau voru öll 400 m$^2$ en ýmist 200 m eða 40 m að lengd. Munur liggur
+einnig í því að lagðir voru út 8 smáreitir á 200 m sniðunum en einungis
+sex á þeim sem eru 40 m að lengd. Staðsetning sniðanna voru skráð með gps
+tæki, upphafs-, loka- og miðhnit í 200 m sniðunum en einungis upphafs- og
+lokahnit í 40 m sniðunum. Það sem skiptir kannski mestu varðandi nákvæmni
+vöktunar er að ekki er hægt að staðsetja sniðin nákvæmlega vegna
+ónákvæmni gps hnitanna, reynt hefur verið að ráða bót á þessu til
+framtíðar með því að setja tréhæla við upphaf og lok þeirra sniðan sem
+hafa verið endurmæld.
+
+\vspace{1cm}
+
+\noindent
+Tölfræðileg úrvinnsla var gerð í R (v4.4.2). Fyrir hvern reit var
+tegundafjöldi (S) reiknaður út frá pöruðum gögnum fyrri og síðari
+sýnatöku og breyting á tegundafjölda ($\Delta$S) reiknuð sem mismunur
+milli heimsóknanna tveggja. Breyting á tegundasamsetningu (BC) í hverjum
+reit var mæld með Bray--Curtis-fjarlægð milli tegundasamsetningar fyrri og
+seinni sýnatöku. Wilcoxon signed-rank próf var notað til að kanna hvort
+breyting á tegundafjölda væri marktækt frábrugðin núlli yfir reitina í
+heild. Spearman-fylgni var reiknuð milli $\Delta$S og
+Bray--Curtis-fjarlægðar annars vegar og þriggja umhverfisþátta hins vegar:
+hæðar yfir sjávarmáli, jarðvegsdýptar og tíma milli sýnataka.
+
+\vspace{1cm}
+
+\noindent
+\textbf{Fjölbreytnistuðlar.} Líffræðileg fjölbreytni er mikið til umræðu
+en hingað til hefur einkum verið litið til tegundafjölbreytni þegar
+vistgerðir eru annars vegar. Hér prófuðum við fleiri ólíka stuðla,
+þ.e.\ „Shannon", „Simpson" og „evenness". Kom í ljós allmikill munur milli
+mælinga en þar skipti árafjöldi milli mælinga miklu máli.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{myndir/fjolbreytni.png}
+    \caption{Myndatexti}
+\end{figure}
+
+\newpage
+
+% =========================================================
+%  NIÐURSTÖÐUR
+% =========================================================
+
+\section{Minnkun tegundafjölda}
+
+Tegundafjöldi minnkaði á milli fyrri og seinni mælingar í 183 af 305
+reitum (60\%), á meðan 102 reitir (33\%) sýndu aukningu og 20 héldust
+stöðugir á milli athugana. Miðgildi breytingarinnar var $-$2 tegundir á
+reit (meðaltal $-$2,2). Wilcoxon-próf staðfesti að minnkunin er marktækt
+frábrugðin núlli (V~=~12.113,5, p~$<$~0,001), sem þýðir að hnignunin er
+raunveruleg og kerfisbundin, ekki tilviljanakennd.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{myndir/richness-density-1}
+\caption{Dreifing tegundafjölda við fyrri (blátt) og seinni (rautt)
+mælingu. Lóðrétta línan sýnir miðgildi fyrri mælinganna.}
+\end{figure}
+
+% ---------------------------------------------------------
+\section{Endurnýjun tegunda (Bray--Curtis)}
+
+Endurnýjun tegunda var mæld með Bray--Curtis-fjarlægð milli fyrri og
+seinni mælinga í hverjum reit. Miðgildi Bray--Curtis-gildis var 0,609
+(meðaltal 0,585, n~=~163 reitir), sem þýðir að um helmingur þyngdaðrar
+tegundasamsetningar breyttist á milli mælinga að meðaltali. Fylgni milli
+endurnýjunar tegunda og minnkunar tegundafjölda var marktæk (Spearman
+$\rho~=~-0,323$, p~$<$~0,001), en fremur veik --- sem bendir til þess að
+tvær ólíkar tegundir breytinga séu í gangi samtímis: nettótap tegunda
+annars vegar og skipti á tegundasamsetningu hins vegar.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{myndir/bc-gap-1}
+\caption{Breyting á tegundasamsetningu (Bray--Curtis) sem fall af tíma
+milli mælinga. Rauð brotalína~= línuleg aðlögun (95\,\% CI); blá
+lína~= loess-sléttun.}
+\end{figure}
+
+Breyting á tegundasamsetningu jókst marktækt með auknum tíma milli mælinga
+(hallatala~=~$+$0,025 BC-einingar/ár, $R^2$~=~0,541, p~$<$~0,001).
+Loess-kúrfan sýnir að breytingin er hvað hröðust á fyrstu 15 árunum og
+hægist síðan eftir um 20 ár.
+
+% ---------------------------------------------------------
+\section{Umhverfisþættir sem spá fyrir um breytingu}
+
+Þrír umhverfisþættir voru metnir sem mögulegar skýribreytur: hæð yfir
+sjávarmáli, jarðvegsdýpi og fjöldi ára milli mælinga. Hrá Spearman-fylgni
+sýnir að hæð og tími milli mælinga fylgjast mjög vel að ($\rho \approx
+0,64$--$0,70$ fyrir BC), en þessir þættir eru ekki óháðir: reitir á
+hálendinu höfðu almennt lengra bil milli mælinga. Hlutfylgni, þar sem
+áhrif hinna þriggja breyta eru hafðar fastar, sýnir hvernig þættirnir
+hegða sér óháð hverjum öðrum (tafla~\ref{tab:pred}).
+
+\begin{table}[H]
+\centering
+\caption{Spearman-fylgni og hlutfylgni þriggja umhverfisþátta við
+$\Delta$S og BC. Hlutfylgni eru reiknuð með öllum þremur þáttum í
+líkaninu samtímis. Feitletraðar dálkar sýna hlutfylgni.}
+\label{tab:pred}
+\begin{tabular}{lrrrrrr}
+\toprule
+Þáttur &
+  $\Delta$S $\rho$ &
+  \textbf{$\Delta$S $\rho_p$} &
+  $\Delta$S p &
+  BC $\rho$ &
+  \textbf{BC $\rho_p$} &
+  BC p \\
+\midrule
+Hæð yfir sjávarmáli      & $-$0,343 & \textbf{$-$0,134} & $<$0,001 &  0,643 & \textbf{0,170} & $<$0,001 \\
+Jarðvegsdýpi              & $-$0,110 & \textbf{$-$0,188} & 0,056    & $-$0,017 & \textbf{0,131} & 0,768 \\
+Bil milli mælinga (ár)   & $-$0,349 & \textbf{$-$0,106} & $<$0,001 &  0,700 & \textbf{0,378} & $<$0,001 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Þrjár niðurstöður skera sig úr. \textbf{Tími milli mælinga} hefur mest
+áhrif á florábreytingu (BC hlutfylgni $\rho_p~=~0,378$, p~$<$~0,001), sem
+staðfestir að gróðurbreytingin er enn í gangi og safnast upp með tíma.
+\textbf{Hæð yfir sjávarmáli} er marktæk óháð tíma milli mælinga
+($\Delta$S $\rho_p~=~-0,134$; BC $\rho_p~=~0,170$), sem bendir til þess
+að hálendisreitir séu viðkvæmari. \textbf{Jarðvegsdýpi} kemur fram sem
+sterkasta sjálfstæða skýribreytan fyrir \emph{tegundatap} ($\Delta$S
+$\rho_p~=~-0,188$, p~$<$~0,05) --- grunnjörð tapar fleiri tegundum en
+djúp jörð.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{myndir/soil-depth-plot-1}
+\caption{Tegundatap sem fall af jarðvegsdýpi. Rauð lína~= loess-sléttun;
+blá brotalína~= línuleg aðlögun.}
+\end{figure}
+
+% ---------------------------------------------------------
+\section{Jarðvegsbleyta}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{myndir/moisture-maps-1}
+\caption{Florábreyting (BC) eftir jarðvegsbleytuflokkum. Grænt~= lítil
+breyting; appelsínugult~= miðlungs; rautt~= mikil breyting.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{myndir/moisture-maps-2}
+\caption{Breyting á tegundafjölda ($\Delta$S) eftir
+jarðvegsbleytuflokkum. Dökkrautt~= mikið tap; appelsínugult~= lítið tap;
+grátt~= stöðugt; blátt~= aukning.}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Florábreyting og tegundatap eftir jarðvegsbleytuflokkum.
+Kruskal--Wallis: BC $\chi^2$~=~13,12, p~=~0,004;
+$\Delta$S $\chi^2$~=~11,06, p~=~0,011.}
+\label{tab:moist}
+\begin{tabular}{lrrr}
+\toprule
+Jarðvegsbleyta & n reitir & Miðgildi BC & Miðgildi $\Delta$S \\
+\midrule
+Þurrlendi  & 111 & 0,678 & $-$2 \\
+Mýri       &  77 & 0,609 & $-$4 \\
+Deiglendi  &  70 & 0,526 & $-$1 \\
+Flói       &  45 & 0,441 & $-$1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Þurrlendi sýndi hæstu florábreytingu (BC miðgildi~=~0,678) en fremur
+lítið tegundatap ($\Delta$S miðgildi~=~$-$2), sem bendir til þess að
+tegundasamsetningin sé að breytast --- sumar tegundir hverfa en aðrar koma
+í staðinn --- án þess að heildarfjöldi tegunda minnki verulega. Mýrar
+sýndu hins vegar mest tegundatap ($\Delta$S~=~$-$4) án tilsvarandi hækkunar
+á Bray--Curtis-fjarlægðinni, sem bendir til þess að tegundir séu að hverfa
+án þess að nýjar taki við. Þetta eru tveir grundvallarólíkir
+breytingarferlar sem skipta máli fyrir túlkun niðurstaðnanna.
+
+% ---------------------------------------------------------
+\section{Vistgerðir}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{myndir/habitat-maps-1}
+\caption{Florábreyting (BC) eftir helstu vistgerðum (n~$\geq$~8 reitir).}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{myndir/habitat-maps-2}
+\caption{Breyting á tegundafjölda ($\Delta$S) eftir helstu vistgerðum
+(n~$\geq$~8 reitir).}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Florábreyting og tegundatap eftir vistgerð (n~$\geq$~8).
+Kruskal--Wallis: BC $\chi^2$~=~81,05, p~$<$~0,001;
+$\Delta$S $\chi^2$~=~53,60, p~$<$~0,001.}
+\label{tab:hab}
+\begin{tabular}{lrrr}
+\toprule
+Vistgerð & n reitir & Miðgildi BC & Miðgildi $\Delta$S \\
+\midrule
+Lyngmóavist á hálendi  &  8 & 0,802 & $-$8,0 \\
+Rústamýravist          & 31 & 0,798 & $-$7,0 \\
+Rekjuvist              & 17 & 0,682 & $-$4,0 \\
+Starungsmýravist       & 34 & 0,543 & $-$3,5 \\
+Sjávarfitjungsvist     & 27 & 0,379 &  $+$1,0 \\
+Mosahraunavist         &  8 & 0,182 &  $+$7,0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Þrjár vistgerðir skera sig úr. \textbf{Rústamýravist} (n~=~31) sýndi
+bæði mikla florábreytingu (BC~=~0,798) og mikið tegundatap
+($\Delta$S~=~$-$7) og er þannig sú vistgerð sem er hvað verst sett
+samkvæmt báðum mælikvörðum. \textbf{Lyngmóavist á hálendi} sýndi
+svipaðar niðurstöður (BC~=~0,802, $\Delta$S~=~$-$8) og endurspeglar
+líklega hæðaráhrifin sem komu fram í hlutfylgnigreiningu. Á hinn bóginn
+stendur \textbf{Mosahraunavist} upp úr sem eina vistgerðin sem sýnir bæði
+lága florábreytingu (BC~=~0,182) og aukningu á tegundafjölda
+($\Delta$S~=~$+$7) og kann að gegna hlutverki sem friðland í breytu
+landslagi.
+
+% =========================================================
+\printbibliography[title={Heimildir}, heading=subbib]
+
+\end{document}
